@@ -3,7 +3,7 @@ const XLSX = require('xlsx');
 const ExistingCustomer = require('../models/existingCustomer')
 
 // DB connection
-mongoose.connect('mongodb+srv://Zod:Zaaves7560@cluster1.feijb.mongodb.net/AlgoMatrixCRM')
+mongoose.connect('ask aaves for it')
   .then(() => console.log('MongoDB Connected'))
   .catch(err => console.log(err));
 
