@@ -24,8 +24,6 @@ exports.createAccessoryMasters = async (req, res) => {
     try {
         const {accessoryManufacturer, accessoryType, accessoryModel, accessoryId, invoiceDate, invoiceNumber, warrantyPeriod,} = req.body;
 
-        console.log("Incoming data:", req.body);
-
         if (!accessoryManufacturer || !accessoryType || !accessoryModel || !accessoryId || !invoiceDate || !invoiceNumber || warrantyPeriod === undefined || warrantyPeriod === null) {
             return res.status(400).json({
                 success: false,
