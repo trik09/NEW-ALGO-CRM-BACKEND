@@ -81,6 +81,10 @@ app.use('/api/ticketStatus',require('./routes/ticketStatus.route'));
 //app.use('/api/bankStatement',require('./routes/BankSatemant.routes')); 
 //app.use('/api/state',require('./routes/state.route'));    
 
+app.use('/api/accessoryMaster', require('./routes/accessoryMaster.route'));  // Accessory Master Route
+app.use('/api/deviceMaster', require('./routes/deviceMaster.route'));  // Device Master Route
+app.use('/api/simMaster', require('./routes/simMaster.route'));  // Sim Master Route
+
 app.use('/api', require('./utils/S3Utils'))  // this is used for presigned URL
 
 
