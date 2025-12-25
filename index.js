@@ -41,7 +41,30 @@ const app = express(); // add cores permission for localhost and http://admin.qu
 
 
 // -----------------------
-app.use(cors());
+// In your index.js, update CORS to:
+const allowedOrigins = [
+  'https://crm.algotrack.in',
+  'http://crm.algotrack.in'
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like server-to-server)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+app.use(cors(corsOptions));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*'); // Allow all domains
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
