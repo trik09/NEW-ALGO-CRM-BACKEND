@@ -8,7 +8,7 @@ const sendEmail = require("../utils/SendEmail");
 const dayjs = require("dayjs");
 // const sendEmail = require('../../utils/sendEmail');
 const welcomeTemplateOfQSTClientsTemplate = require("../emailTemplates/QstClientEmployee");
-//const customerChargeRateListModel = require("../models/customerChargeRateList.model");
+const customerChargeRateListModel = require("../models/customerChargeRateList.model");
 // Controller to add new QST client
 exports.addQstClient = async (req, res) => {
   try {

@@ -86,7 +86,7 @@ const sendEmail = ({
   html,
   text,
   // fromName = 'Quik Serv',
-  fromName = 'Quik Serv HelpDesk',
+  fromName = 'AlgoMatix',
   fromEmail = process.env.EMAIL_USER,
 }) => {
   return new Promise((resolve, reject) => {
