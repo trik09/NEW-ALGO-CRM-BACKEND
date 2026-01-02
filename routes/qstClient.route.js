@@ -19,7 +19,7 @@ router.delete('/deleteQstClient/:id', isAuthenticated, authorizeRoles('superAdmi
  // GET client by user ID
 router.get('/get-client-by-qstuserId/:userId', isAuthenticated, qstClientController.getClientByqstUserId);
 
-
+router.get('/get-mainData', qstClientController.getMainData);
 
 // router.get('/get-client-detail-based/:id',qstClientController.getClientDashboardStats);
 

@@ -1,30 +1,69 @@
 const mongoose = require('mongoose');
 
+const statusHistorySchema = new mongoose.Schema({
+    status: {
+        type: String,
+        enum: [
+            'stock',
+            'sold to customer',
+            'customer demo',
+            'testing',
+            'with technician',
+            'with cse'
+        ],
+    },
+    changedAt: {
+        type: Date,
+        default: Date.now
+    },
+    changedBy: {
+        type: String 
+    }
+}, { _id: false });
+
 const deviceMasterSchema = new mongoose.Schema({
     deviceManufacturer: {
         type: String,
-        required: true,
     },
     deviceType: {
         type: String,
-        required: true,
     },
     deviceModel: {
         type: String,
-        required: true,
     },
-    invoiceNumber: {
+    deviceId: {
         type: String,
-        required: true,
     },
     invoiceDate: {
         type: Date,
-        required: true,
+    },
+    invoiceNumber: {
+        type: String,
+    },
+    deviceAge: {
+        type: String,
     },
     warrantyPeriod: {
-        type: Number, // in months
-        required: true
-    }
+        type: Number,
+    },
+    warrantyStatus: {
+        type: String,
+        enum: ['active', 'out of warranty']
+    },
+    status: {
+        type: String,
+        enum: [
+            'stock',
+            'sold to customer',
+            'customer demo',
+            'testing',
+            'with technician',
+            'with cse'
+        ],
+        default: 'stock'
+    },
+
+    statusHistory: [statusHistorySchema]
 
 }, { timestamps: true });
 

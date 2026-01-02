@@ -1,30 +1,80 @@
 const mongoose = require('mongoose');
 
+const statusHistorySchema = new mongoose.Schema({
+    status: {
+        type: String,
+        enum: [
+            'stock',
+            'sold to customer',
+            'customer demo',
+            'testing',
+            'with technician',
+            'with cse'
+        ],
+    },
+    changedAt: {
+        type: Date,
+        default: Date.now
+    },
+    changedBy: {
+        type: String 
+    }
+}, { _id: false });
+
 const simMasterSchema = new mongoose.Schema({
     simOwner: {
         type: String,
-        required: true,
     },
     simProvider: {
         type: String,
-        required: true,
+    },
+    simType: {
+        type: String,
     },
     simNumber: {
         type: String,
-        required: true,
+    },
+    mobileNumber: {
+        type: String,
     },
     purchaseDate: {
         type: Date,
-        required: true,
+    },
+    isSimActivated: {
+        type: Boolean,
+        default: false
+    },
+    activationDate: {
+        type: String,
     },
     monthlyRental: {
         type: String,
-        required: true,
     }, 
-    monthlyBillingDate: {
+    monthlyData: {
         type: String,
-        required: true,
-    }
+    },
+    simAge: {
+        type: String,
+    },
+    customerOrAlgoEmployeeName: {
+        type: String,
+    },
+
+    status: {
+        type: String,
+        enum: [
+            'stock',
+            'sold to customer',
+            'customer demo',
+            'testing',
+            'with technician',
+            'with cse'
+        ],
+        default: 'stock'
+    },
+
+    statusHistory: [statusHistorySchema]
+
 }, { timestamps: true});
 
 const simMaster = mongoose.model('SimMaster', simMasterSchema);
