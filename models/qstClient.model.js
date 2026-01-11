@@ -11,7 +11,7 @@ const clientSchema = new mongoose.Schema(
     },
     billingCategory: {
       type: String,
-      required: true,
+      // required: true,
     },
 
     companyShortName: {
