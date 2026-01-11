@@ -6,7 +6,6 @@ const {
 const router = express.Router();
 const deviceMasterController = require("../controllers/deviceMaster.controller");
 
-
 router.get(
   "/get-all-deviceMasters",
   isAuthenticated,
@@ -16,6 +15,11 @@ router.post(
   "/create-deviceMasters",
   isAuthenticated,
   deviceMasterController.createDeviceMasters
+);
+router.post(
+  "/bulk-create-deviceMasters",
+  isAuthenticated,
+  deviceMasterController.bulkCreateDeviceMasters
 );
 router.put(
   "/update-deviceMasters/:id",
