@@ -1,6 +1,6 @@
 const express = require("express");
 const deviceController = require("../controllers/device.cntroller");
-const { isAuthenticated ,authorizeRoles} = require("../middleware/auth.middleware");
+const { isAuthenticated, authorizeRoles } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
@@ -41,6 +41,12 @@ router.post(
   isAuthenticated,
   authorizeRoles("superAdmin", "admin"),
   deviceController.createDevicesBulk
+);
+
+router.get(
+  '/get-detailsof-algoClient/:id', 
+  isAuthenticated,
+  deviceController.getDetailsOfAlgoClient
 );
 
 module.exports = router;

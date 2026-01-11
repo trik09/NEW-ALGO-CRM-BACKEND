@@ -7,6 +7,7 @@ const Ticket = require('../models/ticket.model')
 const mongoose =  require("mongoose")
 const dayjs = require("dayjs");
 const customerChargeRateListModel = require('../models/customerChargeRateList.model');
+const MainData = require('../models/mainData.model');
 
 // Create single device
 const createDevice = async (req, res) => {
@@ -388,8 +389,106 @@ const exportDevices = async (req, res) => {
   }
 };
 
+// const getDetailsOfAlgoClient = async (req, res) => {
+//   const {id} = req.params;
+//   console.log("Received ID:", id);
 
+//   try{
+//     if (!mongoose.Types.ObjectId.isValid(id)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid algo client ID",
+//       });
+//     }
+
+//     const AllDetails = await MainData.find({ company: id }).populate('simDetails').populate('deviceDetails');
+
+//     if (!AllDetails) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Algo client details not found",
+//       });
+//     }
+
+//     console.log("AllDetails", AllDetails);
+    
+//     res.status(200).json({
+//       success: true,
+//       message: "Algo client details fetched successfully",
+//       data: AllDetails,
+//     });
+
+//   }catch (error) {
+//     console.error("Error fetching algo client details:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//       error: error.message,
+//     });
+//   }
+
+// }
+
+
+const getDetailsOfAlgoClient = async (req, res) => {
+  const { id } = req.params;
+  const { registrationNumber } = req.query;
+  
+  console.log("Received ID:", id);
+  console.log("Received Registration Number:", registrationNumber);
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid algo client ID",
+      });
+    }
+
+    // Build dynamic query
+    let query = { company: id };
+    
+    // Add registration number to query if provided
+    if (registrationNumber) {
+      query.registrationNumber = registrationNumber;
+    }
+
+    const AllDetails = await MainData.find(query)
+      .populate('simDetails')
+      .populate('deviceDetails');
+
+    if (!AllDetails || AllDetails.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: registrationNumber 
+          ? "No device found with this registration number" 
+          : "No devices found for this client",
+      });
+    }
+
+    console.log("AllDetails", AllDetails);
+    
+    // If registrationNumber is provided, return single object instead of array
+    const responseData = registrationNumber ? AllDetails[0] : AllDetails;
+    
+    res.status(200).json({
+      success: true,
+      message: registrationNumber 
+        ? "Device details fetched successfully" 
+        : "Algo client details fetched successfully",
+      data: responseData,
+    });
+
+  } catch (error) {
+    console.error("Error fetching algo client details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = { createDevice,createDevicesBulk,getAllDevices ,deleteDevice,updateDevice,getAllDevicesForTableShow
-  ,exportDevices
+  ,exportDevices, getDetailsOfAlgoClient
 };
