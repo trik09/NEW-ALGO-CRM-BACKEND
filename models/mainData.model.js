@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
 
 const mainDataSchema = new mongoose.Schema({
-    companyName: {
-        type: String,
+    company: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "QstClient",
+        required: true
     },
     registrationNumber: {
         type: String,

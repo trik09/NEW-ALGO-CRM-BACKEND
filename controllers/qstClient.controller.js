@@ -1509,6 +1509,7 @@ exports.getMainData = async (req, res) => {
 
     // 📄 Paginated data
     const mainData = await MainDataModel.find(query)
+      .populate("company")
       .populate("simDetails")
       .populate("deviceDetails")
       .skip(skip)
