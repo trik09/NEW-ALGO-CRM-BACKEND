@@ -6,7 +6,6 @@ const {
 const router = express.Router();
 const simMasterController = require("../controllers/simMaster.controller");
 
-
 router.get(
   "/get-all-simMasters",
   isAuthenticated,
@@ -16,6 +15,11 @@ router.post(
   "/create-simMasters",
   isAuthenticated,
   simMasterController.createSimMaster
+);
+router.post(
+  "/bulk-create-simMasters",
+  isAuthenticated,
+  simMasterController.bulkCreateSimMasters
 );
 router.put(
   "/update-simMasters/:id",

@@ -16,6 +16,11 @@ router.post(
   isAuthenticated,
   accessoryMasterController.createAccessoryMasters
 );
+router.post(
+  "/bulk-create-accessoryMaster",
+  isAuthenticated,
+  accessoryMasterController.bulkCreateAccessoryMasters
+);
 router.put(
   "/update-accessoryMaster/:id",
   isAuthenticated,

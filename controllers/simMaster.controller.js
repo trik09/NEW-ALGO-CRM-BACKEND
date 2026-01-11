@@ -95,15 +95,6 @@ exports.createSimMaster = async (req, res) => {
       status,
     } = req.body;
 
-    // Required field validation - only essential fields are required
-    // if (!simOwner || !simProvider || !simNumber || !purchaseDate || !monthlyRental || !monthlyDate) {
-    //     return res.status(400).json({
-    //         success: false,
-    //         message: "Required fields: simOwner, simProvider, simNumber, purchaseDate, monthlyRental, monthlyDate",
-    //     });
-    // }
-
-    // Check if SIM number already exists
     const existingSim = await simMasterModel.findOne({ simNumber });
     if (existingSim) {
       return res.status(400).json({
@@ -112,18 +103,15 @@ exports.createSimMaster = async (req, res) => {
       });
     }
 
-    // Build the SIM object with all available fields
     const simData = {
       simOwner,
       simProvider,
       simNumber,
       monthlyRental,
-      monthlyBillingDate: monthlyDate, // Map monthlyDate to monthlyBillingDate
+      monthlyBillingDate: monthlyDate,
     };
 
     if (purchaseDate) simData.purchaseDate = new Date(purchaseDate);
-
-    // Add optional fields only if they are provided
     if (simType) simData.simType = simType;
     if (mobileNumber) simData.mobileNumber = mobileNumber;
     if (isSimActivated !== undefined) {
@@ -136,6 +124,7 @@ exports.createSimMaster = async (req, res) => {
     if (customerOrAlgoEmployeeName)
       simData.customerOrAlgoEmployeeName = customerOrAlgoEmployeeName;
     if (status) simData.status = status;
+    if (simData.status === "" || simData.status === null) delete simData.status;
 
     const newSimMaster = new simMasterModel(simData);
     await newSimMaster.save();
@@ -144,6 +133,56 @@ exports.createSimMaster = async (req, res) => {
       success: true,
       message: "Sim Master created successfully",
       simMaster: newSimMaster,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+exports.bulkCreateSimMasters = async (req, res) => {
+  try {
+    const rawSims = req.body; // Expecting an array of sim objects
+
+    if (!Array.isArray(rawSims) || rawSims.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide an array of SIMs.",
+      });
+    }
+
+    //console.log(rawSims);
+
+    // Map fields to match the model schema and handle monthlyDate conversion
+    const sims = rawSims.map((sim) => ({
+      ...sim,
+      monthlyBillingDate: sim.monthlyBillingDate || sim.monthlyDate,
+      purchaseDate: sim.purchaseDate ? new Date(sim.purchaseDate) : undefined,
+      isSimActivated:
+        sim.isSimActivated === true ||
+        sim.isSimActivated === "true" ||
+        sim.isSimActivated === "Yes" ||
+        sim.isSimActivated === "yes",
+    }));
+
+    // Clean up empty strings for enums
+    const cleanedSims = sims.map((sim) => {
+      if (sim.status === "" || sim.status === null) {
+        const { status, ...rest } = sim;
+        return rest;
+      }
+      return sim;
+    });
+
+    const createdSims = await simMasterModel.insertMany(cleanedSims);
+
+    res.status(201).json({
+      success: true,
+      message: `${createdSims.length} SIMs imported successfully`,
+      data: createdSims,
     });
   } catch (error) {
     console.log(error);

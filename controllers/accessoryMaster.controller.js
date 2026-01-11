@@ -80,10 +80,10 @@ exports.createAccessoryMasters = async (req, res) => {
       invoiceDate,
       invoiceNumber,
       warrantyPeriod,
-      warrantyStatus,
+      warnatyStatus: warrantyStatus,
       status,
       customerName,
-      age,
+      Age: age,
     });
 
     await accessoryMaster.save();
@@ -92,6 +92,42 @@ exports.createAccessoryMasters = async (req, res) => {
       success: true,
       message: "Accessory Master created successfully",
       accessoryMaster,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+exports.bulkCreateAccessoryMasters = async (req, res) => {
+  try {
+    const rawAccessories = req.body; // Expecting an array of accessory objects
+
+    if (!Array.isArray(rawAccessories) || rawAccessories.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide an array of accessories.",
+      });
+    }
+
+    // Map fields to match the model schema (Age and warnatyStatus)
+    const accessories = rawAccessories.map((acc) => ({
+      ...acc,
+      Age: acc.Age || acc.age,
+      warnatyStatus: acc.warnatyStatus || acc.warrantyStatus,
+    }));
+
+    const createdAccessories = await accessoryMasterModel.insertMany(
+      accessories
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `${createdAccessories.length} Accessories imported successfully`,
+      data: createdAccessories,
     });
   } catch (error) {
     console.log(error);
@@ -113,9 +149,15 @@ exports.updateAccessoryMasters = async (req, res) => {
       });
     }
 
-    const updates = Object.fromEntries(
-      Object.entries(req.body).filter(([_, value]) => value !== undefined)
-    );
+    const updates = { ...req.body };
+    if (updates.age !== undefined) {
+      updates.Age = updates.age;
+      delete updates.age;
+    }
+    if (updates.warrantyStatus !== undefined) {
+      updates.warnatyStatus = updates.warrantyStatus;
+      delete updates.warrantyStatus;
+    }
 
     const updatedAccessoryMaster = await accessoryMasterModel.findByIdAndUpdate(
       id,
