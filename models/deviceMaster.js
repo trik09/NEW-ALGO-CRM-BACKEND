@@ -62,6 +62,9 @@ const deviceMasterSchema = new mongoose.Schema({
         ],
         default: 'stock'
     },
+    customerName:{
+        type:String
+    },
 
     statusHistory: [statusHistorySchema]
 

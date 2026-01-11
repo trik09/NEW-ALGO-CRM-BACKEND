@@ -1,11 +1,49 @@
 const DeviceMasterModel = require("../models/deviceMaster");
+const mongoose = require("mongoose");
 
 exports.getAllDeviceMasters = async (req, res) => {
     try {
-        const deviceMasters = await DeviceMasterModel.find();
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        
+        const { search, sortBy, sortOrder } = req.query;
+        const toatlCount = await DeviceMasterModel.countDocuments();
+
+        let searchQuery = {};
+        if (search) {
+            searchQuery = {
+                $or: [
+                    { deviceManufacturer: { $regex: search, $options: 'i' } },
+                    { deviceType: { $regex: search, $options: 'i' } },
+                    { deviceModel: { $regex: search, $options: 'i' } },
+                    { deviceId: { $regex: search, $options: 'i' } },
+                    { invoiceNumber: { $regex: search, $options: 'i' } },
+                    { customerName: { $regex: search, $options: 'i' } },
+                    {status: { $regex: search, $options: 'i' } },
+                ],
+            };
+        }
+        const deviceMasters = await DeviceMasterModel
+        .find(searchQuery)
+        .skip(skip)
+        .limit(limit)
+        .sort({ [sortBy]: sortOrder });
+
+
+        const totalPages = Math.ceil(toatlCount / limit);
+       
+        const hasNextPage = page < totalPages;
+        const hasPreviousPage = page > 1;
         res.status(200).json({
             success: true,
             deviceMasters,
+            totalPages,
+            hasNextPage,
+            hasPreviousPage,
+            nextPage: hasNextPage ? page + 1 : null,
+            previousPage: hasPreviousPage ? page - 1 : null,
         });
     } catch (error) {
         console.log(error);
@@ -18,22 +56,21 @@ exports.getAllDeviceMasters = async (req, res) => {
 
 exports.createDeviceMasters = async (req, res) => {
     try {
-        const { deviceManufacturer, deviceType, deviceModel, invoiceDate, invoiceNumber, warrantyPeriod, } = req.body;
+        const { deviceManufacturer, deviceType, deviceModel, deviceId, invoiceDate, invoiceNumber, warrantyPeriod,deviceAge,warrantyStatus,status,customerName } = req.body;
 
-        if (!deviceManufacturer || !deviceType || !deviceModel || !invoiceDate || !invoiceNumber || warrantyPeriod === undefined || warrantyPeriod === null) {
-            return res.status(400).json({
-                success: false,
-                message: "All fields are required",
-            });
-        }
 
         const newDeviceMaster = new DeviceMasterModel({
             deviceManufacturer,
             deviceType,
             deviceModel,
+            deviceId,
             invoiceDate,
             invoiceNumber,
             warrantyPeriod,
+            deviceAge,
+            warrantyStatus,
+            status,
+            customerName,
         });
 
         await newDeviceMaster.save();

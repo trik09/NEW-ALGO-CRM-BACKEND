@@ -33,6 +33,7 @@ const simMasterSchema = new mongoose.Schema({
     },
     simNumber: {
         type: String,
+        index: true, // Add index for performance on uniqueness checks
     },
     mobileNumber: {
         type: String,
@@ -50,6 +51,9 @@ const simMasterSchema = new mongoose.Schema({
     monthlyRental: {
         type: String,
     }, 
+    monthlyBillingDate: {
+        type: String,
+    },
     monthlyData: {
         type: String,
     },

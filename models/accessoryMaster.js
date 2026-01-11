@@ -3,32 +3,48 @@ const mongoose = require('mongoose');
 const accessoryMasterSchema = new mongoose.Schema({
     accessoryManufacturer: {
         type: String,
-        required: true,
+       
     },
     accessoryType: {
         type: String,
-        required: true,
+        enum:["RFID","Fuel sensor - wired","Fuel sensor - wireless","RelayTemperature sensor","Door sensor","Drum rotation sensor","SD card","4g router","wifi dongle"]
+        
     },
     accessoryModel: {
         type: String,
-        required: true,
+    
     },
     accessoryId: {
         type: String,
-        required: true,
+    
     },
     invoiceDate: {
         type: String,
-        required: true,
+    
     },
     invoiceNumber: {
         type: String,
-        required: true,
+    
+    },
+    Age:{
+        type: Number,
     },
     warrantyPeriod: {
         type: Number, // in months
-        required: true
-    }
+    
+    },
+    warnatyStatus:{
+        type: String,
+       
+    },
+    status:{
+        type: String,
+       
+    },
+    customerName:{
+        type: String,
+    },
+    
 }, {timestamps: true});
 
 const AccessoryMaster = mongoose.model('AccessoryMaster', accessoryMasterSchema);
