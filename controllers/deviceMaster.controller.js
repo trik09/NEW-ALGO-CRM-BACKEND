@@ -8,8 +8,6 @@ exports.getAllDeviceMasters = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const { search, sortBy, sortOrder } = req.query;
-    const toatlCount = await DeviceMasterModel.countDocuments();
-
     let searchQuery = {};
     if (search) {
       searchQuery = {
@@ -24,12 +22,15 @@ exports.getAllDeviceMasters = async (req, res) => {
         ],
       };
     }
+
+    const totalCount = await DeviceMasterModel.countDocuments(searchQuery);
+
     const deviceMasters = await DeviceMasterModel.find(searchQuery)
       .skip(skip)
       .limit(limit)
       .sort({ [sortBy]: sortOrder });
 
-    const totalPages = Math.ceil(toatlCount / limit);
+    const totalPages = Math.ceil(totalCount / limit);
 
     const hasNextPage = page < totalPages;
     const hasPreviousPage = page > 1;

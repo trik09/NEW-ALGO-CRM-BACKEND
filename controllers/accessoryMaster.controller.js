@@ -32,7 +32,7 @@ exports.getAllAccessoryMasters = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
-    const totalCount = await accessoryMasterModel.countDocuments();
+    const totalCount = await accessoryMasterModel.countDocuments(searchQuery);
 
     const totalPages = Math.ceil(totalCount / limit);
 
