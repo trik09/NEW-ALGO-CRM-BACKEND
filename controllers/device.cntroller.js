@@ -4,9 +4,13 @@
 const Device = require('../models/device.model');
 const Employee = require('../models/employee.model')
 const Ticket = require('../models/ticket.model')
-const mongoose =  require("mongoose")
+const mongoose = require("mongoose")
 const dayjs = require("dayjs");
 const customerChargeRateListModel = require('../models/customerChargeRateList.model');
+const MainData = require('../models/mainData.model');
+const DeviceMaster = require('../models/deviceMaster');
+const SimMaster = require('../models/simMaster');
+const AccessoryMaster = require('../models/accessoryMaster');
 
 // Create single device
 const createDevice = async (req, res) => {
@@ -63,10 +67,10 @@ const deleteDevice = async (req, res) => {
         message: 'Invalid device ID',
       });
     }
-    
 
-     const deletedDevice1 = await Device.findById(id);
-     
+
+    const deletedDevice1 = await Device.findById(id);
+
 
     if (!deletedDevice1) {
       return res.status(404).json({
@@ -76,19 +80,19 @@ const deleteDevice = async (req, res) => {
     }
 
 
-    const dependentTickets = await Ticket.findOne({ 
-          deviceType: id, 
-          isTicketClosed: false
-        });
-    
-        if (dependentTickets) {
-          return res.status(400).json({
-            success: false,
-            message: "Cannot delete device as it's being used in one or more open tickets",
-          });
-        }
+    const dependentTickets = await Ticket.findOne({
+      deviceType: id,
+      isTicketClosed: false
+    });
 
-            // Check for charge rates associated with this device
+    if (dependentTickets) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot delete device as it's being used in one or more open tickets",
+      });
+    }
+
+    // Check for charge rates associated with this device
     const existingChargeRates = await customerChargeRateListModel.findOne({
       device: id
     });
@@ -102,7 +106,7 @@ const deleteDevice = async (req, res) => {
 
     // Find and delete device
     const deletedDevice = await Device.findByIdAndDelete(id);
-   
+
     res.status(200).json({
       success: true,
       message: 'Device deleted successfully',
@@ -141,9 +145,9 @@ const updateDevice = async (req, res) => {
     }
 
     // Check for duplicate device name (excluding current device)
-    const duplicate = await Device.findOne({ 
-      deviceName: deviceName.trim(), 
-      _id: { $ne: id } 
+    const duplicate = await Device.findOne({
+      deviceName: deviceName.trim(),
+      _id: { $ne: id }
     });
 
     if (duplicate) {
@@ -225,15 +229,15 @@ const createDevicesBulk = async (req, res) => {
 const getAllDevices = async (req, res) => {
   try {
     const search = req.query.search || "";
- 
-   
+
+
     const query = search
       ? { deviceName: { $regex: search, $options: "i" } }
       : {};
-  // console.log(query);
+    // console.log(query);
     const devices = await Device.find(query).sort({ createdAt: -1 });
     // console.log("devices array", devices);
-    res.status(200).json({data:devices,message:'All available devices fetched successfully'});
+    res.status(200).json({ data: devices, message: 'All available devices fetched successfully' });
   } catch (error) {
     console.error('Error getting devices:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -243,9 +247,9 @@ const getAllDevices = async (req, res) => {
 const getAllDevicesForTableShow = async (req, res) => {
   try {
     // Extract query parameters from frontend
-    const { 
+    const {
       search = "",
-      page = 1, 
+      page = 1,
       limit = 10,
       sort = "createdAt",
       order = "desc"
@@ -253,7 +257,7 @@ const getAllDevicesForTableShow = async (req, res) => {
 
     // Calculate pagination values
     const skip = (page - 1) * limit;
-    
+
     // Build the query for search
     const query = {};
     if (search) {
@@ -262,7 +266,7 @@ const getAllDevicesForTableShow = async (req, res) => {
 
     // Get total count of devices (for pagination)
     const total = await Device.countDocuments(query);
-  
+
     // Fetch devices with pagination and sorting
     const devices = await Device.find(query)
       .populate('deviceCreator', 'name email') // Only populate name and email
@@ -270,19 +274,19 @@ const getAllDevicesForTableShow = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .lean();
-// console.log("devices array", devices1);
+    // console.log("devices array", devices1);
     // Format the response exactly as frontend expects
     const response = {
       success: true,
       data: devices.map(device => ({
         _id: device._id,
         deviceName: device.deviceName,
-        deviceCreator: device.deviceCreator 
+        deviceCreator: device.deviceCreator
           ? {
-              _id: device.deviceCreator._id,
-              name: device.deviceCreator.name,
-              email: device.deviceCreator.email
-            } 
+            _id: device.deviceCreator._id,
+            name: device.deviceCreator.name,
+            email: device.deviceCreator.email
+          }
           : null,
         createdAt: device.createdAt,
         updatedAt: device.updatedAt
@@ -300,7 +304,7 @@ const getAllDevicesForTableShow = async (req, res) => {
 
   } catch (error) {
     console.error('Error getting devices:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Internal server error',
       message: 'Failed to fetch devices'
@@ -308,47 +312,6 @@ const getAllDevicesForTableShow = async (req, res) => {
   }
 };
 
-
-
-
-//   try {
-//     const { fromDate, toDate, search } = req.query;
-
-//     if (!fromDate || !toDate) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "fromDate and toDate are required",
-//       });
-//     }
-
-//     const from = dayjs(fromDate).startOf("day").toDate();
-//     const to = dayjs(toDate).endOf("day").toDate();
-
-//     const query = {
-//       createdAt: { $gte: from, $lte: to },
-//     };
-
-//     if (search) {
-//       query.deviceName = { $regex: search, $options: "i" };
-//     }
-
-//     const devices = await Device.find(query).sort({ createdAt: -1 });
-
-//     res.status(200).json({
-//       success: true,
-//       count: devices.length,
-//       message: "Filtered devices fetched successfully",
-//       data: devices,
-//     });
-//   } catch (error) {
-//     console.error("Error exporting devices:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Internal server error",
-//       error: error.message,
-//     });
-//   }
-// };
 const exportDevices = async (req, res) => {
   try {
     const { fromDate, toDate } = req.query;
@@ -388,8 +351,166 @@ const exportDevices = async (req, res) => {
   }
 };
 
+const getDetailsOfAlgoClient = async (req, res) => {
+  const { id } = req.params;
+  const { registrationNumber } = req.query;
+
+  console.log("Received ID:", id);
+  console.log("Received Registration Number:", registrationNumber);
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid algo client ID",
+      });
+    }
+
+    // Build dynamic query
+    let query = { company: id };
+
+    // Add registration number to query if provided
+    if (registrationNumber) {
+      query.registrationNumber = registrationNumber;
+    }
+
+    const AllDetails = await MainData.find(query)
+      .populate('simDetails')
+      .populate('deviceDetails');
+
+    if (!AllDetails || AllDetails.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: registrationNumber
+          ? "No device found with this registration number"
+          : "No devices found for this client",
+      });
+    }
+
+    console.log("AllDetails", AllDetails);
+
+    // If registrationNumber is provided, return single object instead of array
+    const responseData = registrationNumber ? AllDetails[0] : AllDetails;
+
+    res.status(200).json({
+      success: true,
+      message: registrationNumber
+        ? "Device details fetched successfully"
+        : "Algo client details fetched successfully",
+      data: responseData,
+    });
+
+  } catch (error) {
+    console.error("Error fetching algo client details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+const getDetailsForStore = async (req, res) => {
+  try {
+    const [
+      usedDeviceIds,
+      usedSimIds,
+      usedAccessoryIds
+    ] = await Promise.all([
+      MainData.distinct('deviceDetails', { deviceDetails: { $ne: null } }),
+      MainData.distinct('simDetails', { simDetails: { $ne: null } }),
+      MainData.distinct('accessoryDetails')
+    ]);
+
+    const [
+      devices,
+      sims,
+      accessories
+    ] = await Promise.all([
+      DeviceMaster.find({ _id: { $nin: usedDeviceIds } }),
+      SimMaster.find({ _id: { $nin: usedSimIds } }),
+      AccessoryMaster.find({ _id: { $nin: usedAccessoryIds } })
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Unassigned inventory fetched successfully",
+      data: { devices, sims, accessories }
+    });
+
+  } catch (error) {
+    console.error("Error fetching unassigned inventory:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
 
 
-module.exports = { createDevice,createDevicesBulk,getAllDevices ,deleteDevice,updateDevice,getAllDevicesForTableShow
-  ,exportDevices
+const createNewMainData = async (req, res) => {
+
+  try {
+
+    const {
+      accessoryDetails,
+      deviceDetails,
+      simDetails,
+      server,
+      company,
+      assetType,
+      referType,
+      registrationNumbers,
+    } = req.body;
+
+    const { accessoryId } = accessoryDetails;
+    const { simId } = simDetails;
+    const { deviceId } = deviceDetails;
+    const { companyId } = company;
+
+    // Validate required fields
+    if (!companyId || !mongoose.Types.ObjectId.isValid(companyId)) {
+      return res.status(400).json({ success: false, message: 'Valid company ID is required' });
+    }
+
+    if (registrationNumbers && !Array.isArray(registrationNumbers)) {
+      return res.status(400).json({ success: false, message: 'registrationNumbers must be an array' });
+    }
+    
+    // ✅ build documents (ONE per registration number)
+    const documents = registrationNumbers.map((regNo) => ({
+      company: companyId,
+      registrationNumber: regNo,
+      referType,
+      assetType,
+      server,
+      accessoryDetails: accessoryId,
+      deviceDetails: deviceId,
+      simDetails: simId,
+    }));
+
+    // ✅ insert all at once
+    const savedData = await MainData.insertMany(documents);
+
+    return res.status(201).json({
+      success: true,
+      message: "MainData created successfully",
+      count: savedData.length,
+      data: savedData,
+    });
+
+  } catch (error) {
+    console.error("Error creating MainData:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+}
+
+module.exports = {
+  createDevice, createDevicesBulk, getAllDevices, deleteDevice, updateDevice, getAllDevicesForTableShow
+  , exportDevices, getDetailsOfAlgoClient, getDetailsForStore, createNewMainData
 };
