@@ -49,4 +49,16 @@ router.get(
   deviceController.getDetailsOfAlgoClient
 );
 
+router.get(
+  '/get-DetailsforStore', 
+  isAuthenticated,
+  deviceController.getDetailsForStore
+);
+
+router.post(
+  '/create-new-mainData',
+  isAuthenticated,
+  deviceController.createNewMainData
+)
+
 module.exports = router;
