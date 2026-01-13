@@ -4,7 +4,10 @@ const {
   uploadEmployeeDocuments,
   multerErrorHandler,
 } = require("../middleware/upload.middleware");
-const { isAuthenticated ,authorizeRoles} = require("../middleware/auth.middleware");
+const {
+  isAuthenticated,
+  authorizeRoles,
+} = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
@@ -26,7 +29,7 @@ router.get(
 router.post(
   "/create-employee",
   isAuthenticated,
- 
+
   employeeController.createEmployee
 );
 
@@ -40,16 +43,16 @@ router.get(
 router.post(
   "/create-employee-by-superAdmin",
   isAuthenticated,
-  authorizeRoles('superAdmin','admin'),
-  // uploadEmployeeDocuments,
-  // multerErrorHandler,
+  authorizeRoles("superAdmin", "admin"),
+  uploadEmployeeDocuments,
+  multerErrorHandler,
   employeeController.createEmployeeBySuperAdmin
 );
 
 router.patch(
   "/update-employee-by-superAdmin/:id",
   isAuthenticated,
-  authorizeRoles('superAdmin','admin'),
+  authorizeRoles("superAdmin", "admin"),
   uploadEmployeeDocuments,
   multerErrorHandler,
   employeeController.updateEmployeeBySuperAdmin
@@ -57,9 +60,9 @@ router.patch(
 
 router.delete(
   "/delete-employees-by-superAdmin/:id",
-  
+
   isAuthenticated,
-  authorizeRoles('superAdmin','admin'),
+  authorizeRoles("superAdmin", "admin"),
   employeeController.deleteEmployeeBySuperAdmin
 );
 

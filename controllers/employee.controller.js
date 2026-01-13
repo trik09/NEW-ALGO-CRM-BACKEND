@@ -404,12 +404,12 @@ exports.createEmployeeBySuperAdmin = async (req, res) => {
       serviceStates,
     
     } = req.body;
-    console.log("THis running")
+    // console.log("THis running")
     // Format the zone input
     const formattedZone = formatZone(zone);
     // console.log("Body:", req.body);
     console.log("Files:", req.files); // Should contain: photo, aadharImage, panCardImage
-    console.log("Original zone:", zone, "Formatted zone:", formattedZone);
+   // console.log("Original zone:", zone, "Formatted zone:", formattedZone);
     // Required field validation
     if (!name || !email || !phoneNumber || !password || !role || !formattedZone) {
       return res.status(400).json({
@@ -423,7 +423,7 @@ exports.createEmployeeBySuperAdmin = async (req, res) => {
 
 
     // Role validation
-    const validRoles = ["cse", "admin"];
+    const validRoles = ["cse", "admin","store"];
     if (!validRoles.includes(role)) {
       return res.status(400).json({
         success: false,
@@ -558,26 +558,22 @@ if (!passwordValidation.valid) {
       return data.Location; // Returns the public URL
     };
 
-    // // Upload files to S3
-    // const [photoUrl, aadharImageUrl, panCardImageUrl] = await Promise.all([
-    //   req.files?.photo?.[0]
-    //     ? uploadToS3(req.files.photo[0], "employeeDocs")
-    //     : null,
-    //   req.files?.aadharImage?.[0]
-    //     ? uploadToS3(req.files.aadharImage[0], "employeeDocs")
-    //     : null,
-    //   req.files?.panCardImage?.[0]
-    //     ? uploadToS3(req.files.panCardImage[0], "employeeDocs")
-    //     : null,
-    // ]);
+    // Upload files to S3
+    const [photoUrl, aadharImageUrl, panCardImageUrl] = await Promise.all([
+      req.files?.photo?.[0]
+        ? uploadToS3(req.files.photo[0], "employeeDocs")
+        : null,
+      req.files?.aadharImage?.[0]
+        ? uploadToS3(req.files.aadharImage[0], "employeeDocs")
+        : null,
+      req.files?.panCardImage?.[0]
+        ? uploadToS3(req.files.panCardImage[0], "employeeDocs")
+        : null,
+    ]);
 
-    const photoUrl = "fjatjsdjfafieafjelsfsdlfkskladjf";
-    const aadharImageUrl = "fjatjsdjfafieafjelsfsdlfkskladjf";
-    const panCardImageUrl = "fjatjsdjfafieafjelsfsdlfkskladjf";
-
-    console.log(photoUrl);
-    console.log(aadharImageUrl);
-    console.log(panCardImageUrl, "45454545");
+    //console.log(photoUrl);
+    // console.log(aadharImageUrl);
+    // console.log(panCardImageUrl, "45454545");
     // Create new employee with S3 URLs
     const newEmployee = new Employee({
       name,
