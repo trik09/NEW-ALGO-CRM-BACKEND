@@ -14,9 +14,9 @@ const generateTicketSKUId = require("../utils/TicketSkuIdGenerator");
 const getTicketSKUIdGenerator = require("../utils/TicketSkuIdGenerator");
 const generateTechnicianAssignmentEmail = require("../emailTemplates/TechnicianFileUploadTemplate");
 const sendEmail = require("../utils/SendEmail");
+// const DueDateChangeLog = require("../models/DueDateChangeLog.model");
+const securityCodeModel = require("../models/securityCode.model");
 const DueDateChangeLog = require("../models/DueDateChangeLog.model");
-//const securityCodeModel = require("../models/securityCode.model");
-//const DueDateChangeLog = require("../models/DueDateChangeLog.model");
 // const {deleteFromS3 } = require('../utils/S3Utils');
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -64,8 +64,12 @@ const createTicket = async (req, res) => {
       dueDate,
       qstProjectID,
       ticketAvailabilityDate,
+      registrationNumber
       // here we get all file urls which uploaded during ticket creation
     } = req.body;
+
+
+    console.log("☑️☑️☑️ :", req.body);
     // handle empty string come for objectId
     const technician = rawTechnician === "" ? undefined : rawTechnician;
 
@@ -276,6 +280,7 @@ const createTicket = async (req, res) => {
       ticketAvailabilityDate: new Date(ticketAvailabilityDate),
       technician: technician || undefined,
       oldVehicleNumber: isReinstallation ? oldVehicleNumbersArray : [],
+      registrationNumber: registrationNumber || '',
       vehicleNumbers: isReinstallation
         ? newVehicleNumbersArray.map((newNumber, index) => ({
           vehicleNumber: newNumber, // ✅ FIXED HERE
@@ -4169,8 +4174,8 @@ const getAllTickets = async (req, res) => {
       .populate("technician", "name nickName beneficiaryId")
       .populate("creator", "name")
       .populate("qstProjectID", "projectName _id")
-      .populate("issueFoundRef", "issueFoundName")
-      .populate("resolutionRef", "ResolutionName")
+      // .populate("issueFoundRef", "issueFoundName")
+      // .populate("resolutionRef", "ResolutionName")
       .sort(sortCriteria) // Use the dynamic sort criteria
       // .sort(dateType === "dueDate" ? { dueDate: 1 } : { [selectedDateField]: -1 }) // Modified this line
       // .sort({ [selectedDateField]: -1 })
@@ -6013,8 +6018,8 @@ const updateTicket = async (req, res) => {
       { path: "technician", select: "name email _id" },
       { path: "creator", select: "name" },
       { path: "qstProjectID", select: "projectName _id" },
-      { path: "issueFoundRef", select: "name description" },
-      { path: "resolutionRef", select: "name description" },
+      // { path: "issueFoundRef", select: "name description" },
+      // { path: "resolutionRef", select: "name description" },
     ]);
 
     if (
@@ -6041,7 +6046,8 @@ const updateTicket = async (req, res) => {
           updatedTicket.technician,
           securityCode
         );
-
+        
+      console.log("SENDING MAIL TO TECHNICIAN:", updatedTicket?.technician.email);
         await sendEmail({
           to: updatedTicket?.technician.email,
           subject: emailContent.subject,
