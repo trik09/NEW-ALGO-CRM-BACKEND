@@ -59,6 +59,9 @@ const ticketSchema = new mongoose.Schema({
     default: '',
     required: false
   },
+  registrationNumber: {
+    type: String,
+  },
 
   price: {
     type: Number,
