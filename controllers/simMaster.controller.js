@@ -35,7 +35,7 @@ exports.getAllSimMasters = async (req, res) => {
 
     // Get paginated data
     const simMasters = await simMasterModel
-      .find()
+      .find(searchQuery)
       .select("-statusHistory") // Exclude statusHistory array for better performance
       .sort({ [sortBy]: sortOrder })
       .skip(skip)
