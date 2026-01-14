@@ -6,7 +6,7 @@ const Ticket = require("../models/ticket.model");
 const mongoose = require("mongoose");
 const dayjs = require("dayjs");
 
-//const securityCodeModel = require("../models/securityCode.model");
+const securityCodeModel = require("../models/securityCode.model");
 
 exports.getAllTechnicians = async (req, res) => {
   try {
@@ -2280,10 +2280,13 @@ exports.VerifySecurityCodeOfTechnicianInFileUpload = async(req,res)=>{
   try {
     const { technicianSecurityCode:code, technicianId,ticketId } = req.body;
     
-    console.log(code, technicianId , ticketId,"555555555555555555555555555");
+    console.log(code, technicianId , ticketId,"Incoming payload for verification");
 
       const securityCode1 = await securityCodeModel.findOne({})
-      console.log(securityCode1)
+      console.log(securityCode1, "securityCode1===================");
+
+    // Validate input
+    
     const securityCode = await securityCodeModel.findOne({
       securityCode: code,
       technicianId,

@@ -1,12 +1,12 @@
 const Ticket = require("../models/ticket.model");
-//const DeletedTicketLog = require("../models/deletedTicketLog.model");
+const DeletedTicketLog = require("../models/deletedTicketLog.model");
 const QstClient = require("../models/qstClient.model");
 const Employee = require("../models/employee.model");
 const Technician = require("../models/technician.model");
 const Project = require("../models/project.model");
 const Task = require("../models/task.model");
 const Device = require("../models/device.model");
-//  const State = require("../models/state.model");
+const State = require("../models/state.model");
 const mongoose = require("mongoose");
 const AWS = require("aws-sdk");
 const dayjs = require("dayjs");
@@ -6050,6 +6050,7 @@ const updateTicket = async (req, res) => {
       console.log("SENDING MAIL TO TECHNICIAN:", updatedTicket?.technician.email);
         await sendEmail({
           to: updatedTicket?.technician.email,
+          // to: 'emailmdowais483@gmail.com',
           subject: emailContent.subject,
           html: emailContent.html,
           text: emailContent.text,

@@ -9,7 +9,7 @@
 
 // async function migrate() {
 //   try {
-//     await mongoose.connect('mongodb+srv://Zod:Zaaves7560@cluster1.feijb.mongodb.net/AlgoMatrixCRM');
+//     await mongoose.connect('mongodb+srv://riyazrahman_db_user:3qey9dM0Zui7GgVt@cluster0.wsbhkym.mongodb.net/AlgoMatrixCRM');
 //     console.log("MongoDB connected");
 
 //     const cursor = OldData.find().cursor(); // STREAMING (safe for 19k+)
@@ -41,40 +41,6 @@
 //       }
 //     }
 
-
-//     /* 1️⃣ Create SIM */
-//     // const sim = await SimMaster.create({
-//     //   simOwner: doc.simOwner,
-//     //   simProvider: doc.simProvider,
-//     //   simType: doc.simType,
-//     //   simNumber: doc.simNumber,
-//     //   mobileNumber: doc.mobileNumber,
-//     //   purchaseDate: doc.purchaseDate || null,
-//     //   status: 'stock'
-//     // });
-
-//     /* 2️⃣ Create DEVICE */
-//     // const device = await DeviceMaster.create({
-//     //   deviceManufacturer: doc.deviceManufacturer,
-//     //   deviceType: doc.deviceType,
-//     //   deviceModel: doc.deviceModel,
-//     //   deviceId: doc.deviceId,
-//     //   invoiceDate: doc.invoiceDate || null,
-//     //   status: 'stock'
-//     // });
-
-//     /* 3️⃣ Create MAIN DATA */
-//     //   await MainData.create({
-//     //     company: company._id,
-//     //     registrationNumber: doc.registrationNumber,
-//     //     referType: doc.referType,
-//     //     assetType: doc.assetType,
-//     //     server: doc.server,
-//     //     simDetails: sim._id,
-//     //     deviceDetails: device._id
-//     //   });
-//     // }
-
 //     console.log("✅ Migration completed successfully");
 //     process.exit();
 //   } catch (err) {
@@ -99,7 +65,7 @@ const QstClient = require("../models/qstClient.model");
 
 async function migrate() {
   try {
-    await mongoose.connect('mongodb+srv://Zod:Zaaves7560@cluster1.feijb.mongodb.net/AlgoMatrixCRM');
+    await mongoose.connect('mongodb+srv://riyazrahman_db_user:3qey9dM0Zui7GgVt@cluster0.wsbhkym.mongodb.net/AlgoMatrixCRM');
     console.log("MongoDB connected");
 
     const cursor = OldData.find().cursor();

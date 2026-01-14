@@ -76,7 +76,7 @@ app.use('/api/dashboard',require('./routes/maindashboard.routes'))
 app.use('/api/ticketStatus',require('./routes/ticketStatus.route'));
 //app.use('/api/customerCharge',require('./routes/CustomerChargeRate.route'));
 //app.use('/api/bankStatement',require('./routes/BankSatemant.routes')); 
-//app.use('/api/state',require('./routes/state.route'));    
+app.use('/api/state',require('./routes/state.route'));    
 
 app.use('/api/accessoryMaster', require('./routes/accessoryMaster.route'));  // Accessory Master Route
 app.use('/api/deviceMaster', require('./routes/deviceMaster.route'));  // Device Master Route
