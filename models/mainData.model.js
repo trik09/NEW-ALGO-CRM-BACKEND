@@ -26,10 +26,12 @@ const mainDataSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "DeviceMaster"
     },
-    accessoryDetails: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "AccessoryMaster"
-    }
+    accessoryDetails: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "AccessoryMaster"
+        }
+    ]
 
 
 }, { timestamps: true });

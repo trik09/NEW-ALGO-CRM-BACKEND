@@ -449,48 +449,123 @@ const getDetailsForStore = async (req, res) => {
 };
 
 
-const createNewMainData = async (req, res) => {
+// const createNewMainData = async (req, res) => {
 
-  try {
+//   try {
 
-    const {
-      accessoryDetails,
-      deviceDetails,
-      simDetails,
-      server,
-      company,
-      assetType,
-      referType,
-      registrationNumbers,
-    } = req.body;
+//     const {
+//       accessoryDetails,
+//       deviceDetails,
+//       simDetails,
+//       server,
+//       company,
+//       assetType,
+//       referType,
+//       registrationNumbers,
+//     } = req.body;
 
-    const { accessoryId } = accessoryDetails;
-    const { simId } = simDetails;
-    const { deviceId } = deviceDetails;
-    const { companyId } = company;
+//     const { accessoryId } = accessoryDetails;
+//     const { simId } = simDetails;
+//     const { deviceId } = deviceDetails;
+//     const { companyId } = company;
 
-    // Validate required fields
-    if (!companyId || !mongoose.Types.ObjectId.isValid(companyId)) {
-      return res.status(400).json({ success: false, message: 'Valid company ID is required' });
-    }
+//     // Validate required fields
+//     if (!companyId || !mongoose.Types.ObjectId.isValid(companyId)) {
+//       return res.status(400).json({ success: false, message: 'Valid company ID is required' });
+//     }
 
-    if (registrationNumbers && !Array.isArray(registrationNumbers)) {
-      return res.status(400).json({ success: false, message: 'registrationNumbers must be an array' });
-    }
+//     if (registrationNumbers && !Array.isArray(registrationNumbers)) {
+//       return res.status(400).json({ success: false, message: 'registrationNumbers must be an array' });
+//     }
     
-    // ✅ build documents (ONE per registration number)
-    const documents = registrationNumbers.map((regNo) => ({
-      company: companyId,
-      registrationNumber: regNo,
-      referType,
-      assetType,
-      server,
-      accessoryDetails: accessoryId,
-      deviceDetails: deviceId,
-      simDetails: simId,
-    }));
+//     // ✅ build documents (ONE per registration number)
+//     const documents = registrationNumbers.map((regNo) => ({
+//       company: companyId,
+//       registrationNumber: regNo,
+//       referType,
+//       assetType,
+//       server,
+//       accessoryDetails: accessoryId,
+//       deviceDetails: deviceId,
+//       simDetails: simId,
+//     }));
 
-    // ✅ insert all at once
+//     // ✅ insert all at once
+//     const savedData = await MainData.insertMany(documents);
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "MainData created successfully",
+//       count: savedData.length,
+//       data: savedData,
+//     });
+
+//   } catch (error) {
+//     console.error("Error creating MainData:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//       error: error.message,
+//     });
+//   }
+// }
+
+const createNewMainData = async (req, res) => {
+  try {
+    const { company, assetType, referType, server, vehicles } = req.body;
+
+    const companyId = company?.companyId;
+
+    if (!companyId || !mongoose.Types.ObjectId.isValid(companyId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid company.companyId is required",
+      });
+    }
+
+    if (!Array.isArray(vehicles) || vehicles.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "vehicles must be a non-empty array",
+      });
+    }
+
+    const documents = vehicles.map((v) => {
+      const regNo = (v?.registrationNumber || "").trim();
+
+      // ✅ allow both: v.deviceDetails.deviceId OR v.deviceDetails.deviceId already OR v.deviceDetails itself
+      const deviceId =
+        v?.deviceDetails?.deviceId ||
+        v?.deviceDetails?.deviceDetailsId ||
+        v?.deviceDetails?._id ||
+        v?.deviceDetails ||
+        null;
+
+      const simId =
+        v?.simDetails?.simId ||
+        v?.simDetails?._id ||
+        v?.simDetails ||
+        null;
+
+      // ✅ multiple accessories -> array of ObjectIds
+      const accessoryIds = Array.isArray(v?.accessoryDetails)
+        ? v.accessoryDetails
+            .map((a) => a?.accessoryId || a?._id || a)
+            .filter(Boolean)
+        : [];
+
+      return {
+        company: companyId,
+        assetType,
+        referType,
+        server,
+        registrationNumber: regNo,
+        deviceDetails: deviceId,
+        simDetails: simId,
+        accessoryDetails: accessoryIds,
+      };
+    });
+
     const savedData = await MainData.insertMany(documents);
 
     return res.status(201).json({
@@ -499,16 +574,16 @@ const createNewMainData = async (req, res) => {
       count: savedData.length,
       data: savedData,
     });
-
   } catch (error) {
     console.error("Error creating MainData:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
       error: error.message,
     });
   }
-}
+};
+
 
 module.exports = {
   createDevice, createDevicesBulk, getAllDevices, deleteDevice, updateDevice, getAllDevicesForTableShow
