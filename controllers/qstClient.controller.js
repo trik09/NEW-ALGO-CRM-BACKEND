@@ -2,10 +2,10 @@ const QstClient = require("../models/qstClient.model");
 const Employee = require("../models/employee.model");
 const Project = require("../models/project.model");
 const mongoose = require("mongoose");
-const Ticket = require('../models/ticket.model');
+const Ticket = require("../models/ticket.model");
 const bcrypt = require("bcrypt");
 const sendEmail = require("../utils/SendEmail");
-const MainDataModel = require('../models/mainData.model')
+const MainDataModel = require("../models/mainData.model");
 const dayjs = require("dayjs");
 // const sendEmail = require('../../utils/sendEmail');
 const welcomeTemplateOfQSTClientsTemplate = require("../emailTemplates/QstClientEmployee");
@@ -165,7 +165,7 @@ exports.createSingleQSTClient = async (req, res) => {
     }
 
     if (!billingCategory) {
-       await session.abortTransaction();
+      await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         success: false,
@@ -262,16 +262,19 @@ exports.createSingleQSTClient = async (req, res) => {
         tempPassword,
         `${process.env.CLIENT_BASE_URL}/login`
       );
-       try{
-      await sendEmail({
-        to: savedEmployee.email,
-        // subject: "Welcome on Quik Serv",
-        subject: `Login credentials for ${savedEmployee.name}`,
-        html,
-      }); } catch (err){
-        console.error(`Email sending failed to ${savedEmployee.email}:`, err.message);
+      try {
+        await sendEmail({
+          to: savedEmployee.email,
+          // subject: "Welcome on Quik Serv",
+          subject: `Login credentials for ${savedEmployee.name}`,
+          html,
+        });
+      } catch (err) {
+        console.error(
+          `Email sending failed to ${savedEmployee.email}:`,
+          err.message
+        );
       }
-
     }
 
     // Save employee references to client
@@ -377,7 +380,6 @@ function generateSimplePassword(length = 12) {
 //     const { clientId } = req.params;
 
 //     console.log(billingCategory.req.params);
-    
 
 //     // Validate minimum
 //     if (!companyShortName || !contacts || contacts.length === 0) {
@@ -389,7 +391,6 @@ function generateSimplePassword(length = 12) {
 //       });
 //     }
 
-     
 //     if (!billingCategory) {
 //        await session.abortTransaction();
 //       session.endSession();
@@ -408,7 +409,7 @@ function generateSimplePassword(length = 12) {
 //         .json({ success: false, message: "Client not found" });
 //     }
 //   console.log(billingCategory);
-  
+
 //     // Update client fields
 //     client.companyName = companyName;
 //     client.companyShortName = companyShortName;
@@ -490,7 +491,6 @@ function generateSimplePassword(length = 12) {
 //   }
 // };
 
-
 exports.getAlltheQstClientForShowInTable = async (req, res) => {
   try {
     const search = req.query.search || "";
@@ -501,7 +501,7 @@ exports.getAlltheQstClientForShowInTable = async (req, res) => {
     const filter = {};
 
     if (search) {
-     const searchConditions = [
+      const searchConditions = [
         { companyName: { $regex: search, $options: "i" } },
         { companyShortName: { $regex: search, $options: "i" } },
         { gstNo: { $regex: search, $options: "i" } },
@@ -524,7 +524,7 @@ exports.getAlltheQstClientForShowInTable = async (req, res) => {
       // Return first page results instead
       const adjustedSkip = 0;
       const adjustedPage = 1;
-      
+
       const qstClients = await QstClient.find(filter)
         .populate({
           path: "qstClientCreator",
@@ -589,11 +589,9 @@ exports.getAlltheQstClientForShowInTable = async (req, res) => {
   }
 };
 
-
 // Use to show clients in dropdownOPtions (don't apply any filter or other things)
 exports.getAllQstClients = async (req, res) => {
   try {
-   
     // const search = req.query.search || "";
 
     const qstClients = await QstClient.find({
@@ -631,7 +629,6 @@ exports.getAllQstClients = async (req, res) => {
   }
 };
 
-
 // DELETE QST Client by ID
 exports.deleteQSTClientById = async (req, res) => {
   const session = await mongoose.startSession();
@@ -654,12 +651,14 @@ exports.deleteQSTClientById = async (req, res) => {
     // 2. Check for open tickets (using both client ID and name for backward compatibility)
     const openTicket = await Ticket.findOne({
       $and: [
-        { $or: [
-          { qstClientName: clientId },
-          { qstClientName: client.clientName } // If you store name as reference
-        ]},
-        { isTicketClosed: false }
-      ]
+        {
+          $or: [
+            { qstClientName: clientId },
+            { qstClientName: client.clientName }, // If you store name as reference
+          ],
+        },
+        { isTicketClosed: false },
+      ],
     }).session(session);
 
     if (openTicket) {
@@ -667,20 +666,23 @@ exports.deleteQSTClientById = async (req, res) => {
       session.endSession();
       return res.status(400).json({
         success: false,
-        message: "Cannot delete client - there are open tickets associated with this client",
-        ticketId: openTicket._id // Optional: return the open ticket ID for reference
+        message:
+          "Cannot delete client - there are open tickets associated with this client",
+        ticketId: openTicket._id, // Optional: return the open ticket ID for reference
       });
     }
 
     // 3. Check for projects with open tickets
-    const projects = await Project.find({ qstClient: clientId }).session(session);
+    const projects = await Project.find({ qstClient: clientId }).session(
+      session
+    );
     for (const project of projects) {
       const projectOpenTicket = await Ticket.findOne({
         $or: [
           { qstProjectID: project._id },
-          { qstClientProjectName: project.projectName }
+          { qstClientProjectName: project.projectName },
         ],
-        isTicketClosed: false
+        isTicketClosed: false,
       }).session(session);
 
       if (projectOpenTicket) {
@@ -690,34 +692,35 @@ exports.deleteQSTClientById = async (req, res) => {
           success: false,
           message: `Cannot delete client - project ${project.projectName} has open tickets`,
           projectId: project._id,
-          ticketId: projectOpenTicket._id
+          ticketId: projectOpenTicket._id,
         });
       }
     }
 
-
-
-        // 4. Check for charge rates associated with this client
-    const existingChargeRates = await customerChargeRateListModel.findOne({
-      qstClient: clientId
-    }).session(session);
+    // 4. Check for charge rates associated with this client
+    const existingChargeRates = await customerChargeRateListModel
+      .findOne({
+        qstClient: clientId,
+      })
+      .session(session);
 
     if (existingChargeRates) {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         success: false,
-        message: "Cannot delete client - there are charge rates associated with this client",
+        message:
+          "Cannot delete client - there are charge rates associated with this client",
       });
     }
 
     // 5. Delete associated records
     await Employee.deleteMany({
-      _id: { $in: client.contactEmployeeIds }
+      _id: { $in: client.contactEmployeeIds },
     }).session(session);
 
-    await Project.deleteMany({ 
-      qstClient: client._id 
+    await Project.deleteMany({
+      qstClient: client._id,
     }).session(session);
 
     // 5. Delete the client
@@ -730,7 +733,6 @@ exports.deleteQSTClientById = async (req, res) => {
       success: true,
       message: "Client and all associated records deleted successfully",
     });
-
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -768,7 +770,7 @@ exports.deleteQSTClientById = async (req, res) => {
 //     // Delete associated projects (optional – if applicable)
 //     await Project.deleteMany({ qstClient: client._id }).session(session);
 
-//     // Delete the client  
+//     // Delete the client
 //     await QstClient.findByIdAndDelete(client._id).session(session);
 
 //     await session.commitTransaction();
@@ -841,9 +843,6 @@ exports.exportQstClients = async (req, res) => {
   }
 };
 
-
-
-
 // exports.updateSingleQSTClient = async (req, res) => {
 
 //   const { id } = req.params;
@@ -904,9 +903,6 @@ exports.exportQstClients = async (req, res) => {
 //   }
 // };
 
-
-
-
 // exports.getClientDashboardStats = async (req, res) => {
 //   try {
 //     const { id: clientId } = req.params;
@@ -965,7 +961,6 @@ exports.exportQstClients = async (req, res) => {
 //     ]);
 
 //     const result = stats[0];
- 
 
 // const response = {
 //   client: {
@@ -1000,11 +995,6 @@ exports.exportQstClients = async (req, res) => {
 //   }
 // };
 
-
-
-
-
-
 //   try {
 //     const { clientId } = req.params;
 //     const currentDate = new Date();
@@ -1031,20 +1021,20 @@ exports.exportQstClients = async (req, res) => {
 //             { $count: "count" }
 //           ],
 //           delayedTickets: [
-//             { 
-//               $match: { 
+//             {
+//               $match: {
 //                 isTicketClosed: false,
 //                 dueDate: { $lt: currentDate }
-//               } 
+//               }
 //             },
 //             { $count: "count" }
 //           ],
 //           uniqueProjects: [
-//             { 
-//               $group: { 
+//             {
+//               $group: {
 //                 _id: null,
 //                 projects: { $addToSet: "$qstClientProjectName" }
-//               } 
+//               }
 //             },
 //             { $project: { count: { $size: "$projects" } } }
 //           ]
@@ -1079,13 +1069,6 @@ exports.exportQstClients = async (req, res) => {
 //     res.status(500).json({ message: "Server Error" });
 //   }
 // };
-
-
-
-
-
-
-
 
 exports.updateSingleQSTClient = async (req, res) => {
   const session = await mongoose.startSession();
@@ -1125,14 +1108,15 @@ exports.updateSingleQSTClient = async (req, res) => {
     // Validate contacts if provided
     if (contacts && contacts.length > 0) {
       const emails = new Set();
-      
+
       for (const contact of contacts) {
         if (!contact.contactPerson || !contact.email || !contact.mobileNo) {
           await session.abortTransaction();
           session.endSession();
           return res.status(400).json({
             success: false,
-            message: "Each contact must have contactPerson, email, and mobileNo",
+            message:
+              "Each contact must have contactPerson, email, and mobileNo",
           });
         }
 
@@ -1161,7 +1145,7 @@ exports.updateSingleQSTClient = async (req, res) => {
     // Check for duplicate company name (excluding current client)
     const existingClient = await QstClient.findOne({
       companyName: companyName.trim(),
-      _id: { $ne: id }
+      _id: { $ne: id },
     }).session(session);
 
     if (existingClient) {
@@ -1186,12 +1170,12 @@ exports.updateSingleQSTClient = async (req, res) => {
     // if (contacts && contacts.length > 0) {
     //   // Get current contact employee IDs
     //   const currentContactIds = client.contactEmployeeIds || [];
-      
+
     //   // Create arrays to track contacts to add, update, and remove
     //   const contactsToAdd = [];
     //   const contactsToUpdate = [];
     //   const existingContactEmails = new Set();
-      
+
     //   // First, identify which contacts are new and which exist
     //   for (const contact of contacts) {
     //     // Check if this contact already exists in the database
@@ -1199,7 +1183,7 @@ exports.updateSingleQSTClient = async (req, res) => {
     //       email: contact.email.toLowerCase(),
     //       associatedClient: client._id
     //     }).session(session);
-        
+
     //     if (existingEmployee) {
     //       // Contact exists, update it
     //       existingEmployee.name = contact.contactPerson;
@@ -1211,7 +1195,7 @@ exports.updateSingleQSTClient = async (req, res) => {
     //       contactsToAdd.push(contact);
     //     }
     //   }
-      
+
     //   // Identify contacts to remove (those not in the new contacts list)
     //   const contactsToRemove = [];
     //   for (const employeeId of currentContactIds) {
@@ -1220,28 +1204,28 @@ exports.updateSingleQSTClient = async (req, res) => {
     //       contactsToRemove.push(employee);
     //     }
     //   }
-      
+
     //   // Remove contacts that are no longer needed
     //   for (const employee of contactsToRemove) {
     //     // Remove employee reference from client
     //     client.contactEmployeeIds = client.contactEmployeeIds.filter(
     //       id => id.toString() !== employee._id.toString()
     //     );
-        
+
     //     // Soft delete or remove the employee
     //     // Option 1: Remove completely
     //     await Employee.findByIdAndDelete(employee._id).session(session);
-        
+
     //     // Option 2: Mark as inactive (recommended)
     //     // employee.isActive = false;
     //     await employee.save({ session });
     //   }
-      
+
     //   // Update existing contacts
     //   for (const employee of contactsToUpdate) {
     //     await employee.save({ session });
     //   }
-      
+
     //   // Add new contacts
     //   const newEmployees = [];
     //   for (const contact of contactsToAdd) {
@@ -1274,7 +1258,7 @@ exports.updateSingleQSTClient = async (req, res) => {
     //       tempPassword,
     //       `${process.env.CLIENT_BASE_URL}/login`
     //     );
-        
+
     //     try {
     //       await sendEmail({
     //         to: savedEmployee.email,
@@ -1287,124 +1271,126 @@ exports.updateSingleQSTClient = async (req, res) => {
     //   }
     // }
 
-
     // Handle contacts if provided
-if (contacts && contacts.length > 0) {
-  // Get current contact employee IDs (only those that actually exist)
-  const currentContactIds = client.contactEmployeeIds || [];
-  const validCurrentContactIds = [];
-  
-  // Verify which contact IDs actually exist in the Employee collection
-  for (const empId of currentContactIds) {
-    const exists = await Employee.exists({ _id: empId }).session(session);
-    if (exists) {
-      validCurrentContactIds.push(empId);
-    }
-  }
-  
-  // Update client with only valid contact IDs
-  client.contactEmployeeIds = validCurrentContactIds;
-  
-  // Create arrays to track contacts to add, update, and remove
-  const contactsToAdd = [];
-  const contactsToUpdate = [];
-  const existingContactEmails = new Set();
-  
-  // First, identify which contacts are new and which exist
-  for (const contact of contacts) {
-    // Check if this contact already exists in the database
-    const existingEmployee = await Employee.findOne({
-      email: contact.email.toLowerCase(),
-      associatedClient: client._id
-    }).session(session);
-    
-    if (existingEmployee) {
-      // Contact exists, update it
-      existingEmployee.name = contact.contactPerson;
-      existingEmployee.phoneNumber = contact.mobileNo;
-      contactsToUpdate.push(existingEmployee);
-      existingContactEmails.add(contact.email.toLowerCase());
-    } else {
-      // New contact to add
-      contactsToAdd.push(contact);
-    }
-  }
-  
-  // Identify contacts to remove (those not in the new contacts list)
-  const contactsToRemove = [];
-  const currentEmployees = await Employee.find({
-    _id: { $in: validCurrentContactIds },
-    associatedClient: client._id
-  }).session(session);
-  
-  for (const employee of currentEmployees) {
-    if (!existingContactEmails.has(employee.email.toLowerCase())) {
-      contactsToRemove.push(employee);
-    }
-  }
-  
-  // Remove contacts that are no longer needed
-  for (const employee of contactsToRemove) {
-    // Remove employee reference from client
-    client.contactEmployeeIds = client.contactEmployeeIds.filter(
-      id => id.toString() !== employee._id.toString()
-    );
-    
-    // Mark as inactive instead of deleting (recommended)
-    employee.isActive = false;
-    await employee.save({ session });
-  }
-  
-  // Update existing contacts
-  for (const employee of contactsToUpdate) {
-    await employee.save({ session });
-  }
-  
-  // Add new contacts
-  const newEmployees = [];
-  for (const contact of contactsToAdd) {
-    const tempPassword = generateSimplePassword(10);
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    if (contacts && contacts.length > 0) {
+      // Get current contact employee IDs (only those that actually exist)
+      const currentContactIds = client.contactEmployeeIds || [];
+      const validCurrentContactIds = [];
 
-    const newEmployee = new Employee({
-      name: contact.contactPerson,
-      email: contact.email.toLowerCase(),
-      phoneNumber: contact.mobileNo,
-      password: hashedPassword,
-      role: "qstClient",
-      associatedClient: client._id,
-      isActive: true,
-    });
+      // Verify which contact IDs actually exist in the Employee collection
+      for (const empId of currentContactIds) {
+        const exists = await Employee.exists({ _id: empId }).session(session);
+        if (exists) {
+          validCurrentContactIds.push(empId);
+        }
+      }
 
-    const savedEmployee = await newEmployee.save({ session });
-    newEmployees.push({
-      employee: savedEmployee,
-      tempPassword,
-    });
+      // Update client with only valid contact IDs
+      client.contactEmployeeIds = validCurrentContactIds;
 
-    // Add to client's contact list
-    client.contactEmployeeIds.push(savedEmployee._id);
+      // Create arrays to track contacts to add, update, and remove
+      const contactsToAdd = [];
+      const contactsToUpdate = [];
+      const existingContactEmails = new Set();
 
-    // Send welcome email
-    const html = welcomeTemplateOfQSTClientsTemplate(
-      savedEmployee.name,
-      savedEmployee.email,
-      tempPassword,
-      `${process.env.CLIENT_BASE_URL}/login`
-    );
-    
-    try {
-      await sendEmail({
-        to: savedEmployee.email,
-        // subject: "Welcome on Quik Serv",
-        subject: `Login credentials for ${savedEmployee.name}`,
-        html,
-      });
-    } catch (err) {
-      console.error(`Email sending failed to ${savedEmployee.email}:`, err.message);
+      // First, identify which contacts are new and which exist
+      for (const contact of contacts) {
+        // Check if this contact already exists in the database
+        const existingEmployee = await Employee.findOne({
+          email: contact.email.toLowerCase(),
+          associatedClient: client._id,
+        }).session(session);
+
+        if (existingEmployee) {
+          // Contact exists, update it
+          existingEmployee.name = contact.contactPerson;
+          existingEmployee.phoneNumber = contact.mobileNo;
+          contactsToUpdate.push(existingEmployee);
+          existingContactEmails.add(contact.email.toLowerCase());
+        } else {
+          // New contact to add
+          contactsToAdd.push(contact);
+        }
+      }
+
+      // Identify contacts to remove (those not in the new contacts list)
+      const contactsToRemove = [];
+      const currentEmployees = await Employee.find({
+        _id: { $in: validCurrentContactIds },
+        associatedClient: client._id,
+      }).session(session);
+
+      for (const employee of currentEmployees) {
+        if (!existingContactEmails.has(employee.email.toLowerCase())) {
+          contactsToRemove.push(employee);
+        }
+      }
+
+      // Remove contacts that are no longer needed
+      for (const employee of contactsToRemove) {
+        // Remove employee reference from client
+        client.contactEmployeeIds = client.contactEmployeeIds.filter(
+          (id) => id.toString() !== employee._id.toString()
+        );
+
+        // Mark as inactive instead of deleting (recommended)
+        employee.isActive = false;
+        await employee.save({ session });
+      }
+
+      // Update existing contacts
+      for (const employee of contactsToUpdate) {
+        await employee.save({ session });
+      }
+
+      // Add new contacts
+      const newEmployees = [];
+      for (const contact of contactsToAdd) {
+        const tempPassword = generateSimplePassword(10);
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+        const newEmployee = new Employee({
+          name: contact.contactPerson,
+          email: contact.email.toLowerCase(),
+          phoneNumber: contact.mobileNo,
+          password: hashedPassword,
+          role: "qstClient",
+          associatedClient: client._id,
+          isActive: true,
+        });
+
+        const savedEmployee = await newEmployee.save({ session });
+        newEmployees.push({
+          employee: savedEmployee,
+          tempPassword,
+        });
+
+        // Add to client's contact list
+        client.contactEmployeeIds.push(savedEmployee._id);
+
+        // Send welcome email
+        const html = welcomeTemplateOfQSTClientsTemplate(
+          savedEmployee.name,
+          savedEmployee.email,
+          tempPassword,
+          `${process.env.CLIENT_BASE_URL}/login`
+        );
+
+        try {
+          await sendEmail({
+            to: savedEmployee.email,
+            // subject: "Welcome on Quik Serv",
+            subject: `Login credentials for ${savedEmployee.name}`,
+            html,
+          });
+        } catch (err) {
+          console.error(
+            `Email sending failed to ${savedEmployee.email}:`,
+            err.message
+          );
+        }
+      }
     }
-  }
-}
 
     await client.save({ session });
     await session.commitTransaction();
@@ -1412,7 +1398,7 @@ if (contacts && contacts.length > 0) {
 
     // Populate the client with contact details for response
     const updatedClient = await QstClient.findById(id)
-      .populate('contactEmployeeIds', 'name email phoneNumber')
+      .populate("contactEmployeeIds", "name email phoneNumber")
       .lean();
 
     return res.status(200).json({
@@ -1432,7 +1418,7 @@ if (contacts && contacts.length > 0) {
   }
 };
 
- exports.getClientByqstUserId = async (req, res) => {
+exports.getClientByqstUserId = async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -1440,17 +1426,17 @@ if (contacts && contacts.length > 0) {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid user ID'
+        message: "Invalid user ID",
       });
     }
 
     // Find the employee/user
     const user = await Employee.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
@@ -1458,36 +1444,34 @@ if (contacts && contacts.length > 0) {
     if (!user.associatedClient) {
       return res.status(404).json({
         success: false,
-        message: 'No client associated with this user'
+        message: "No client associated with this user",
       });
     }
 
     // Find the client
     const client = await QstClient.findById(user.associatedClient);
-    
+
     if (!client) {
       return res.status(404).json({
         success: false,
-        message: 'Associated client not found'
+        message: "Associated client not found",
       });
     }
 
     res.status(200).json({
       success: true,
-      message: 'Client retrieved successfully',
-      data: client
+      message: "Client retrieved successfully",
+      data: client,
     });
-
   } catch (error) {
-    console.error('Error fetching client by user:', error);
+    console.error("Error fetching client by user:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };
-
 
 exports.getMainData = async (req, res) => {
   try {
@@ -1546,6 +1530,100 @@ exports.getMainData = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching main data",
+      error: error.message,
+    });
+  }
+};
+
+exports.updateMainData = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      qstClient,
+      assetType,
+      referType,
+      server,
+      registrationNumber,
+      deviceId,
+      mobileNumber,
+      accessoryId,
+      deviceDetails,
+      simDetails,
+      accessoryDetails,
+    } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid ID" });
+    }
+
+    const updates = {
+      company: qstClient,
+      assetType,
+      referType,
+      server,
+      registrationNumber,
+      deviceDetails:
+        deviceId || deviceDetails?.deviceId || deviceDetails?._id || null,
+      simDetails: mobileNumber || simDetails?.simId || simDetails?._id || null,
+      accessoryDetails:
+        accessoryId ||
+        accessoryDetails?.accessoryId ||
+        accessoryDetails?._id ||
+        null,
+    };
+
+    const updatedData = await MainDataModel.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedData) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Main data not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Main data updated successfully",
+      data: updatedData,
+    });
+  } catch (error) {
+    console.error("Error updating main data:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating main data",
+      error: error.message,
+    });
+  }
+};
+
+exports.deleteMainData = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid ID" });
+    }
+
+    const deletedData = await MainDataModel.findByIdAndDelete(id);
+
+    if (!deletedData) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Main data not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Main data deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting main data:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error deleting main data",
       error: error.message,
     });
   }

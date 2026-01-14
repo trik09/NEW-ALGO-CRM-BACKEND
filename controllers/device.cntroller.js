@@ -1,16 +1,14 @@
-
-
 // controllers/deviceController.js
-const Device = require('../models/device.model');
-const Employee = require('../models/employee.model')
-const Ticket = require('../models/ticket.model')
-const mongoose = require("mongoose")
+const Device = require("../models/device.model");
+const Employee = require("../models/employee.model");
+const Ticket = require("../models/ticket.model");
+const mongoose = require("mongoose");
 const dayjs = require("dayjs");
-const customerChargeRateListModel = require('../models/customerChargeRateList.model');
-const MainData = require('../models/mainData.model');
-const DeviceMaster = require('../models/deviceMaster');
-const SimMaster = require('../models/simMaster');
-const AccessoryMaster = require('../models/accessoryMaster');
+const customerChargeRateListModel = require("../models/customerChargeRateList.model");
+const MainData = require("../models/mainData.model");
+const DeviceMaster = require("../models/deviceMaster");
+const SimMaster = require("../models/simMaster");
+const AccessoryMaster = require("../models/accessoryMaster");
 
 // Create single device
 const createDevice = async (req, res) => {
@@ -19,17 +17,29 @@ const createDevice = async (req, res) => {
 
     // Validate inputs
     if (!deviceName || !deviceName.trim()) {
-      return res.status(400).json({ success: false, message: 'Device name is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Device name is required" });
     }
 
     if (!deviceCreator || !mongoose.Types.ObjectId.isValid(deviceCreator)) {
-      return res.status(400).json({ success: false, message: 'Valid device creator ID is required' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Valid device creator ID is required",
+        });
     }
 
     // Check for duplicates
     const existing = await Device.findOne({ deviceName: deviceName.trim() });
     if (existing) {
-      return res.status(409).json({ success: false, message: 'Device with this name already exists' });
+      return res
+        .status(409)
+        .json({
+          success: false,
+          message: "Device with this name already exists",
+        });
     }
 
     // Save device
@@ -42,20 +52,19 @@ const createDevice = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Device created successfully',
+      message: "Device created successfully",
       data: savedDevice,
     });
-
   } catch (error) {
-    console.error('Error creating device:', error);
+    console.error("Error creating device:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
+      message: "Internal server error",
       error: error.message,
     });
   }
 };
-// Delete device 
+// Delete device
 const deleteDevice = async (req, res) => {
   try {
     const { id } = req.params;
@@ -64,43 +73,42 @@ const deleteDevice = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid device ID',
+        message: "Invalid device ID",
       });
     }
 
-
     const deletedDevice1 = await Device.findById(id);
-
 
     if (!deletedDevice1) {
       return res.status(404).json({
         success: false,
-        message: 'Device not found',
+        message: "Device not found",
       });
     }
 
-
     const dependentTickets = await Ticket.findOne({
       deviceType: id,
-      isTicketClosed: false
+      isTicketClosed: false,
     });
 
     if (dependentTickets) {
       return res.status(400).json({
         success: false,
-        message: "Cannot delete device as it's being used in one or more open tickets",
+        message:
+          "Cannot delete device as it's being used in one or more open tickets",
       });
     }
 
     // Check for charge rates associated with this device
     const existingChargeRates = await customerChargeRateListModel.findOne({
-      device: id
+      device: id,
     });
 
     if (existingChargeRates) {
       return res.status(400).json({
         success: false,
-        message: "Cannot delete device as it's being used in one or more charge rates",
+        message:
+          "Cannot delete device as it's being used in one or more charge rates",
       });
     }
 
@@ -109,19 +117,19 @@ const deleteDevice = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Device deleted successfully',
+      message: "Device deleted successfully",
       data: deletedDevice,
     });
   } catch (error) {
-    console.error('Error deleting device:', error);
+    console.error("Error deleting device:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
+      message: "Internal server error",
       error: error.message,
     });
   }
 };
-// Update device 
+// Update device
 
 const updateDevice = async (req, res) => {
   try {
@@ -130,28 +138,36 @@ const updateDevice = async (req, res) => {
 
     // Validate device name
     if (!deviceName || !deviceName.trim()) {
-      return res.status(400).json({ success: false, message: 'Device name is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Device name is required" });
     }
 
     // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'Invalid device ID' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid device ID" });
     }
 
     // Check if device exists
     const existingDevice = await Device.findById(id);
     if (!existingDevice) {
-      return res.status(404).json({ success: false, message: 'Device not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Device not found" });
     }
 
     // Check for duplicate device name (excluding current device)
     const duplicate = await Device.findOne({
       deviceName: deviceName.trim(),
-      _id: { $ne: id }
+      _id: { $ne: id },
     });
 
     if (duplicate) {
-      return res.status(409).json({ success: false, message: 'Device name already in use' });
+      return res
+        .status(409)
+        .json({ success: false, message: "Device name already in use" });
     }
 
     // Update device name
@@ -160,56 +176,60 @@ const updateDevice = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Device updated successfully',
+      message: "Device updated successfully",
       data: updatedDevice,
     });
-
   } catch (error) {
-    console.error('Error updating device:', error);
+    console.error("Error updating device:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
+      message: "Internal server error",
       error: error.message,
     });
   }
 };
 
-
-// create bulk device in one time 
+// create bulk device in one time
 
 const createDevicesBulk = async (req, res) => {
   try {
     const { devices, creatorId } = req.body;
 
     if (!Array.isArray(devices) || devices.length === 0) {
-      return res.status(400).json({ error: 'Devices must be a non-empty array.' });
+      return res
+        .status(400)
+        .json({ error: "Devices must be a non-empty array." });
     }
 
     if (!creatorId) {
-      return res.status(400).json({ error: 'Device creator (creatorId) is required.' });
+      return res
+        .status(400)
+        .json({ error: "Device creator (creatorId) is required." });
     }
 
     // Check if creator exists in Employee collection
     const creatorExists = await Employee.findById(creatorId);
     if (!creatorExists) {
-      return res.status(404).json({ error: 'Creator (Employee) not found.' });
+      return res.status(404).json({ error: "Creator (Employee) not found." });
     }
 
     // Check for existing devices to avoid duplicates
-    const deviceNames = devices.map(d => d.deviceName);
-    const existingDevices = await Device.find({ deviceName: { $in: deviceNames } });
-    const existingNames = existingDevices.map(d => d.deviceName);
+    const deviceNames = devices.map((d) => d.deviceName);
+    const existingDevices = await Device.find({
+      deviceName: { $in: deviceNames },
+    });
+    const existingNames = existingDevices.map((d) => d.deviceName);
 
     // Filter devices to insert (skip duplicates)
     const newDevices = devices
-      .filter(d => !existingNames.includes(d.deviceName))
-      .map(d => ({
+      .filter((d) => !existingNames.includes(d.deviceName))
+      .map((d) => ({
         deviceName: d.deviceName,
         deviceCreator: creatorId,
       }));
 
     if (newDevices.length === 0) {
-      return res.status(409).json({ error: 'All devices already exist.' });
+      return res.status(409).json({ error: "All devices already exist." });
     }
 
     const inserted = await Device.insertMany(newDevices);
@@ -218,18 +238,15 @@ const createDevicesBulk = async (req, res) => {
       message: `${inserted.length} device(s) created successfully.`,
       devices: inserted,
     });
-
   } catch (error) {
-    console.error('Error creating devices in bulk:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Error creating devices in bulk:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
-
 
 const getAllDevices = async (req, res) => {
   try {
     const search = req.query.search || "";
-
 
     const query = search
       ? { deviceName: { $regex: search, $options: "i" } }
@@ -237,10 +254,15 @@ const getAllDevices = async (req, res) => {
     // console.log(query);
     const devices = await Device.find(query).sort({ createdAt: -1 });
     // console.log("devices array", devices);
-    res.status(200).json({ data: devices, message: 'All available devices fetched successfully' });
+    res
+      .status(200)
+      .json({
+        data: devices,
+        message: "All available devices fetched successfully",
+      });
   } catch (error) {
-    console.error('Error getting devices:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Error getting devices:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -252,7 +274,7 @@ const getAllDevicesForTableShow = async (req, res) => {
       page = 1,
       limit = 10,
       sort = "createdAt",
-      order = "desc"
+      order = "desc",
     } = req.query;
 
     // Calculate pagination values
@@ -269,8 +291,8 @@ const getAllDevicesForTableShow = async (req, res) => {
 
     // Fetch devices with pagination and sorting
     const devices = await Device.find(query)
-      .populate('deviceCreator', 'name email') // Only populate name and email
-      .sort({ [sort]: order === 'desc' ? -1 : 1 })
+      .populate("deviceCreator", "name email") // Only populate name and email
+      .sort({ [sort]: order === "desc" ? -1 : 1 })
       .skip(skip)
       .limit(limit)
       .lean();
@@ -278,36 +300,35 @@ const getAllDevicesForTableShow = async (req, res) => {
     // Format the response exactly as frontend expects
     const response = {
       success: true,
-      data: devices.map(device => ({
+      data: devices.map((device) => ({
         _id: device._id,
         deviceName: device.deviceName,
         deviceCreator: device.deviceCreator
           ? {
-            _id: device.deviceCreator._id,
-            name: device.deviceCreator.name,
-            email: device.deviceCreator.email
-          }
+              _id: device.deviceCreator._id,
+              name: device.deviceCreator.name,
+              email: device.deviceCreator.email,
+            }
           : null,
         createdAt: device.createdAt,
-        updatedAt: device.updatedAt
+        updatedAt: device.updatedAt,
       })),
       pagination: {
         page: Number(page),
         limit: Number(limit),
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
       },
-      message: 'All available devices fetched successfully'
+      message: "All available devices fetched successfully",
     };
 
     res.status(200).json(response);
-
   } catch (error) {
-    console.error('Error getting devices:', error);
+    console.error("Error getting devices:", error);
     res.status(500).json({
       success: false,
-      error: 'Internal server error',
-      message: 'Failed to fetch devices'
+      error: "Internal server error",
+      message: "Failed to fetch devices",
     });
   }
 };
@@ -375,8 +396,8 @@ const getDetailsOfAlgoClient = async (req, res) => {
     }
 
     const AllDetails = await MainData.find(query)
-      .populate('simDetails')
-      .populate('deviceDetails');
+      .populate("simDetails")
+      .populate("deviceDetails");
 
     if (!AllDetails || AllDetails.length === 0) {
       return res.status(404).json({
@@ -399,7 +420,6 @@ const getDetailsOfAlgoClient = async (req, res) => {
         : "Algo client details fetched successfully",
       data: responseData,
     });
-
   } catch (error) {
     console.error("Error fetching algo client details:", error);
     res.status(500).json({
@@ -412,38 +432,29 @@ const getDetailsOfAlgoClient = async (req, res) => {
 
 const getDetailsForStore = async (req, res) => {
   try {
-    const [
-      usedDeviceIds,
-      usedSimIds,
-      usedAccessoryIds
-    ] = await Promise.all([
-      MainData.distinct('deviceDetails', { deviceDetails: { $ne: null } }),
-      MainData.distinct('simDetails', { simDetails: { $ne: null } }),
-      MainData.distinct('accessoryDetails')
+    const [usedDeviceIds, usedSimIds, usedAccessoryIds] = await Promise.all([
+      MainData.distinct("deviceDetails", { deviceDetails: { $ne: null } }),
+      MainData.distinct("simDetails", { simDetails: { $ne: null } }),
+      MainData.distinct("accessoryDetails"),
     ]);
 
-    const [
-      devices,
-      sims,
-      accessories
-    ] = await Promise.all([
+    const [devices, sims, accessories] = await Promise.all([
       DeviceMaster.find({ _id: { $nin: usedDeviceIds } }),
       SimMaster.find({ _id: { $nin: usedSimIds } }),
-      AccessoryMaster.find({ _id: { $nin: usedAccessoryIds } })
+      AccessoryMaster.find({ _id: { $nin: usedAccessoryIds } }),
     ]);
 
     res.status(200).json({
       success: true,
       message: "Unassigned inventory fetched successfully",
-      data: { devices, sims, accessories }
+      data: { devices, sims, accessories },
     });
-
   } catch (error) {
     console.error("Error fetching unassigned inventory:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -586,6 +597,14 @@ const createNewMainData = async (req, res) => {
 
 
 module.exports = {
-  createDevice, createDevicesBulk, getAllDevices, deleteDevice, updateDevice, getAllDevicesForTableShow
-  , exportDevices, getDetailsOfAlgoClient, getDetailsForStore, createNewMainData
+  createDevice,
+  createDevicesBulk,
+  getAllDevices,
+  deleteDevice,
+  updateDevice,
+  getAllDevicesForTableShow,
+  exportDevices,
+  getDetailsOfAlgoClient,
+  getDetailsForStore,
+  createNewMainData,
 };
