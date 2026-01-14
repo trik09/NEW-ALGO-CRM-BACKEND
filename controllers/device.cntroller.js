@@ -430,27 +430,55 @@ const getDetailsOfAlgoClient = async (req, res) => {
   }
 };
 
+// const getDetailsForStore = async (req, res) => {
+//   try {
+//     const [usedDeviceIds, usedSimIds, usedAccessoryIds] = await Promise.all([
+//       MainData.distinct("deviceDetails", { deviceDetails: { $ne: null } }),
+//       MainData.distinct("simDetails", { simDetails: { $ne: null } }),
+//       MainData.distinct("accessoryDetails"),
+//     ]);
+
+//     const [devices, sims, accessories] = await Promise.all([
+//       DeviceMaster.find({ _id: { $nin: usedDeviceIds } }),
+//       SimMaster.find({ _id: { $nin: usedSimIds } }),
+//       AccessoryMaster.find({ _id: { $nin: usedAccessoryIds } }),
+//     ]);
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Unassigned inventory fetched successfully",
+//       data: { devices, sims, accessories },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching unassigned inventory:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 const getDetailsForStore = async (req, res) => {
   try {
-    const [usedDeviceIds, usedSimIds, usedAccessoryIds] = await Promise.all([
+    const [usedDeviceIds, usedSimIds] = await Promise.all([
       MainData.distinct("deviceDetails", { deviceDetails: { $ne: null } }),
       MainData.distinct("simDetails", { simDetails: { $ne: null } }),
-      MainData.distinct("accessoryDetails"),
     ]);
 
     const [devices, sims, accessories] = await Promise.all([
       DeviceMaster.find({ _id: { $nin: usedDeviceIds } }),
       SimMaster.find({ _id: { $nin: usedSimIds } }),
-      AccessoryMaster.find({ _id: { $nin: usedAccessoryIds } }),
+      AccessoryMaster.find({}), // ✅ return all because repeat allowed
     ]);
 
     res.status(200).json({
       success: true,
-      message: "Unassigned inventory fetched successfully",
+      message: "Inventory fetched successfully",
       data: { devices, sims, accessories },
     });
   } catch (error) {
-    console.error("Error fetching unassigned inventory:", error);
+    console.error("Error fetching inventory:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -458,68 +486,6 @@ const getDetailsForStore = async (req, res) => {
     });
   }
 };
-
-
-// const createNewMainData = async (req, res) => {
-
-//   try {
-
-//     const {
-//       accessoryDetails,
-//       deviceDetails,
-//       simDetails,
-//       server,
-//       company,
-//       assetType,
-//       referType,
-//       registrationNumbers,
-//     } = req.body;
-
-//     const { accessoryId } = accessoryDetails;
-//     const { simId } = simDetails;
-//     const { deviceId } = deviceDetails;
-//     const { companyId } = company;
-
-//     // Validate required fields
-//     if (!companyId || !mongoose.Types.ObjectId.isValid(companyId)) {
-//       return res.status(400).json({ success: false, message: 'Valid company ID is required' });
-//     }
-
-//     if (registrationNumbers && !Array.isArray(registrationNumbers)) {
-//       return res.status(400).json({ success: false, message: 'registrationNumbers must be an array' });
-//     }
-    
-//     // ✅ build documents (ONE per registration number)
-//     const documents = registrationNumbers.map((regNo) => ({
-//       company: companyId,
-//       registrationNumber: regNo,
-//       referType,
-//       assetType,
-//       server,
-//       accessoryDetails: accessoryId,
-//       deviceDetails: deviceId,
-//       simDetails: simId,
-//     }));
-
-//     // ✅ insert all at once
-//     const savedData = await MainData.insertMany(documents);
-
-//     return res.status(201).json({
-//       success: true,
-//       message: "MainData created successfully",
-//       count: savedData.length,
-//       data: savedData,
-//     });
-
-//   } catch (error) {
-//     console.error("Error creating MainData:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Internal server error",
-//       error: error.message,
-//     });
-//   }
-// }
 
 const createNewMainData = async (req, res) => {
   try {
