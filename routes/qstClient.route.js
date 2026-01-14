@@ -53,18 +53,8 @@ router.get(
 );
 
 router.get("/get-mainData", qstClientController.getMainData);
-router.put(
-  "/update-mainData/:id",
-  isAuthenticated,
-  authorizeRoles("superAdmin", "admin"),
-  qstClientController.updateMainData
-);
-router.delete(
-  "/delete-mainData/:id",
-  isAuthenticated,
-  authorizeRoles("superAdmin", "admin"),
-  qstClientController.deleteMainData
-);
+router.patch("/update-mainData/:id", qstClientController.updateMainData);
+router.delete("/delete-mainData/:id", qstClientController.deleteMainData);
 
 // router.get('/get-client-detail-based/:id',qstClientController.getClientDashboardStats);
 

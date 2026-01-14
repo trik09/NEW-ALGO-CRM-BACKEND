@@ -1481,12 +1481,27 @@ exports.getMainData = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    // 🔍 Optional search (adjust field as needed)
-    const query = search
-      ? {
-          companyName: { $regex: search, $options: "i" },
-        }
-      : {};
+    // 🔍 Optional search
+    let query = {};
+    if (search) {
+      // Find clients matching companyName
+      const clients = await QstClient.find({
+        $or: [
+          { companyName: { $regex: search, $options: "i" } },
+          { companyShortName: { $regex: search, $options: "i" } },
+        ],
+      }).select("_id");
+      const clientIds = clients.map((c) => c._id);
+
+      query = {
+        $or: [
+          { registrationNumber: { $regex: search, $options: "i" } },
+          { server: { $regex: search, $options: "i" } },
+          { assetType: { $regex: search, $options: "i" } },
+          { company: { $in: clientIds } },
+        ],
+      };
+    }
 
     // 🔢 Total count
     const total = await MainDataModel.countDocuments(query);
@@ -1526,7 +1541,6 @@ exports.getMainData = async (req, res) => {
       },
     });
   } catch (error) {
-    console.log("Error fetching main data:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching main data",
@@ -1539,49 +1553,39 @@ exports.updateMainData = async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      qstClient,
-      assetType,
-      referType,
-      server,
+      company,
       registrationNumber,
-      deviceId,
-      mobileNumber,
-      accessoryId,
-      deviceDetails,
+      referType,
+      assetType,
+      server,
       simDetails,
+      deviceDetails,
       accessoryDetails,
     } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid ID" });
-    }
-
-    const updates = {
-      company: qstClient,
-      assetType,
-      referType,
-      server,
-      registrationNumber,
-      deviceDetails:
-        deviceId || deviceDetails?.deviceId || deviceDetails?._id || null,
-      simDetails: mobileNumber || simDetails?.simId || simDetails?._id || null,
-      accessoryDetails:
-        accessoryId ||
-        accessoryDetails?.accessoryId ||
-        accessoryDetails?._id ||
-        null,
-    };
+    const updateFields = {};
+    if (company) updateFields.company = company;
+    if (registrationNumber !== undefined)
+      updateFields.registrationNumber = registrationNumber;
+    if (referType !== undefined) updateFields.referType = referType;
+    if (assetType !== undefined) updateFields.assetType = assetType;
+    if (server !== undefined) updateFields.server = server;
+    if (simDetails !== undefined) updateFields.simDetails = simDetails;
+    if (deviceDetails !== undefined) updateFields.deviceDetails = deviceDetails;
+    if (accessoryDetails !== undefined)
+      updateFields.accessoryDetails = accessoryDetails;
 
     const updatedData = await MainDataModel.findByIdAndUpdate(
       id,
-      { $set: updates },
-      { new: true, runValidators: true }
+      { $set: updateFields },
+      { new: true }
     );
 
     if (!updatedData) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Main data not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Main data not found",
+      });
     }
 
     res.status(200).json({
@@ -1603,16 +1607,13 @@ exports.deleteMainData = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid ID" });
-    }
-
     const deletedData = await MainDataModel.findByIdAndDelete(id);
 
     if (!deletedData) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Main data not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Main data not found",
+      });
     }
 
     res.status(200).json({

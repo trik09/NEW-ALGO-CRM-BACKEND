@@ -462,20 +462,20 @@ const getDetailsForStore = async (req, res) => {
 const createNewMainData = async (req, res) => {
   try {
     const {
-      accessoryDetails = {},
-      deviceDetails = {},
-      simDetails = {},
+      accessoryDetails,
+      deviceDetails,
+      simDetails,
       server,
-      company = {},
+      company,
       assetType,
       referType,
       registrationNumbers,
     } = req.body;
 
-    const accessoryId = accessoryDetails?.accessoryId;
-    const simId = simDetails?.simId;
-    const deviceId = deviceDetails?.deviceId;
-    const companyId = company?.companyId;
+    const { accessoryId } = accessoryDetails;
+    const { simId } = simDetails;
+    const { deviceId } = deviceDetails;
+    const { companyId } = company;
 
     // Validate required fields
     if (!companyId || !mongoose.Types.ObjectId.isValid(companyId)) {
