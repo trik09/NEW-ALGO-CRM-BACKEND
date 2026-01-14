@@ -430,27 +430,55 @@ const getDetailsOfAlgoClient = async (req, res) => {
   }
 };
 
+// const getDetailsForStore = async (req, res) => {
+//   try {
+//     const [usedDeviceIds, usedSimIds, usedAccessoryIds] = await Promise.all([
+//       MainData.distinct("deviceDetails", { deviceDetails: { $ne: null } }),
+//       MainData.distinct("simDetails", { simDetails: { $ne: null } }),
+//       MainData.distinct("accessoryDetails"),
+//     ]);
+
+//     const [devices, sims, accessories] = await Promise.all([
+//       DeviceMaster.find({ _id: { $nin: usedDeviceIds } }),
+//       SimMaster.find({ _id: { $nin: usedSimIds } }),
+//       AccessoryMaster.find({ _id: { $nin: usedAccessoryIds } }),
+//     ]);
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Unassigned inventory fetched successfully",
+//       data: { devices, sims, accessories },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching unassigned inventory:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 const getDetailsForStore = async (req, res) => {
   try {
-    const [usedDeviceIds, usedSimIds, usedAccessoryIds] = await Promise.all([
+    const [usedDeviceIds, usedSimIds] = await Promise.all([
       MainData.distinct("deviceDetails", { deviceDetails: { $ne: null } }),
       MainData.distinct("simDetails", { simDetails: { $ne: null } }),
-      MainData.distinct("accessoryDetails"),
     ]);
 
     const [devices, sims, accessories] = await Promise.all([
       DeviceMaster.find({ _id: { $nin: usedDeviceIds } }),
       SimMaster.find({ _id: { $nin: usedSimIds } }),
-      AccessoryMaster.find({ _id: { $nin: usedAccessoryIds } }),
+      AccessoryMaster.find({}), // ✅ return all because repeat allowed
     ]);
 
     res.status(200).json({
       success: true,
-      message: "Unassigned inventory fetched successfully",
+      message: "Inventory fetched successfully",
       data: { devices, sims, accessories },
     });
   } catch (error) {
-    console.error("Error fetching unassigned inventory:", error);
+    console.error("Error fetching inventory:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -477,35 +505,56 @@ const createNewMainData = async (req, res) => {
     const { deviceId } = deviceDetails;
     const { companyId } = company;
 
-    // Validate required fields
     if (!companyId || !mongoose.Types.ObjectId.isValid(companyId)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Valid company ID is required" });
+      return res.status(400).json({
+        success: false,
+        message: "Valid company.companyId is required",
+      });
     }
 
-    if (registrationNumbers && !Array.isArray(registrationNumbers)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "registrationNumbers must be an array",
-        });
+    if (!Array.isArray(vehicles) || vehicles.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "vehicles must be a non-empty array",
+      });
     }
 
-    // ✅ build documents (ONE per registration number)
-    const documents = registrationNumbers.map((regNo) => ({
-      company: companyId,
-      registrationNumber: regNo,
-      referType,
-      assetType,
-      server,
-      accessoryDetails: accessoryId,
-      deviceDetails: deviceId,
-      simDetails: simId,
-    }));
+    const documents = vehicles.map((v) => {
+      const regNo = (v?.registrationNumber || "").trim();
 
-    // ✅ insert all at once
+      // ✅ allow both: v.deviceDetails.deviceId OR v.deviceDetails.deviceId already OR v.deviceDetails itself
+      const deviceId =
+        v?.deviceDetails?.deviceId ||
+        v?.deviceDetails?.deviceDetailsId ||
+        v?.deviceDetails?._id ||
+        v?.deviceDetails ||
+        null;
+
+      const simId =
+        v?.simDetails?.simId ||
+        v?.simDetails?._id ||
+        v?.simDetails ||
+        null;
+
+      // ✅ multiple accessories -> array of ObjectIds
+      const accessoryIds = Array.isArray(v?.accessoryDetails)
+        ? v.accessoryDetails
+            .map((a) => a?.accessoryId || a?._id || a)
+            .filter(Boolean)
+        : [];
+
+      return {
+        company: companyId,
+        assetType,
+        referType,
+        server,
+        registrationNumber: regNo,
+        deviceDetails: deviceId,
+        simDetails: simId,
+        accessoryDetails: accessoryIds,
+      };
+    });
+
     const savedData = await MainData.insertMany(documents);
 
     return res.status(201).json({
@@ -516,13 +565,14 @@ const createNewMainData = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating MainData:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
       error: error.message,
     });
   }
 };
+
 
 module.exports = {
   createDevice,
