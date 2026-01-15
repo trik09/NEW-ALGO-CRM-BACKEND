@@ -489,21 +489,9 @@ const getDetailsForStore = async (req, res) => {
 
 const createNewMainData = async (req, res) => {
   try {
-    const {
-      accessoryDetails,
-      deviceDetails,
-      simDetails,
-      server,
-      company,
-      assetType,
-      referType,
-      registrationNumbers,
-    } = req.body;
+    const { company, assetType, referType, server, vehicles } = req.body;
 
-    const { accessoryId } = accessoryDetails;
-    const { simId } = simDetails;
-    const { deviceId } = deviceDetails;
-    const { companyId } = company;
+    const companyId = company?.companyId || company?._id || company;
 
     if (!companyId || !mongoose.Types.ObjectId.isValid(companyId)) {
       return res.status(400).json({
@@ -522,22 +510,26 @@ const createNewMainData = async (req, res) => {
     const documents = vehicles.map((v) => {
       const regNo = (v?.registrationNumber || "").trim();
 
-      // ✅ allow both: v.deviceDetails.deviceId OR v.deviceDetails.deviceId already OR v.deviceDetails itself
+      // payload uses deviceId directly
       const deviceId =
+        v?.deviceId ||
         v?.deviceDetails?.deviceId ||
-        v?.deviceDetails?.deviceDetailsId ||
         v?.deviceDetails?._id ||
         v?.deviceDetails ||
         null;
 
+      // payload uses simId directly
       const simId =
+        v?.simId ||
         v?.simDetails?.simId ||
         v?.simDetails?._id ||
         v?.simDetails ||
         null;
 
-      // ✅ multiple accessories -> array of ObjectIds
-      const accessoryIds = Array.isArray(v?.accessoryDetails)
+      // payload uses accessoryIds directly (array of ids/strings)
+      const accessoryIds = Array.isArray(v?.accessoryIds)
+        ? v.accessoryIds.filter(Boolean)
+        : Array.isArray(v?.accessoryDetails)
         ? v.accessoryDetails
             .map((a) => a?.accessoryId || a?._id || a)
             .filter(Boolean)
@@ -551,7 +543,7 @@ const createNewMainData = async (req, res) => {
         registrationNumber: regNo,
         deviceDetails: deviceId,
         simDetails: simId,
-        accessoryDetails: accessoryIds,
+        accessoryDetails: accessoryIds, // ✅ array of ObjectIds
       };
     });
 
@@ -572,7 +564,6 @@ const createNewMainData = async (req, res) => {
     });
   }
 };
-
 
 module.exports = {
   createDevice,
