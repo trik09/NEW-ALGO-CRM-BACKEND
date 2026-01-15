@@ -2,7 +2,7 @@ const generateTechnicianAssignmentEmail = (ticket, technicianName,securityCode) 
   console.log(ticket,"ticket")
   console.log(technicianName,"technician namer")
   // const ticketLink = `${process.env.FRONTEND_URL}/technician/tickets/${ticket._id}`;
-  const ticketLink = `${process.env.CLIENT_BASE_URL}/fileupload-by-technician/${technicianName._id}/${ticket._id}`;
+  const ticketLink = `${process.env.FRONTEND_URL}/fileupload-by-technician/${technicianName._id}/${ticket._id}`;
   // /get-one-active-assigned-ticket/:technicianId/:ticketId",
 
     const securityCodeSection = securityCode ? `

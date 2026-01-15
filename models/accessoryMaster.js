@@ -37,9 +37,17 @@ const accessoryMasterSchema = new mongoose.Schema({
         type: String,
        
     },
-    status:{
+    status: {
         type: String,
-       
+        enum: [
+            'stock',
+            'sold to customer',
+            'customer demo',
+            'testing',
+            'with technician',
+            'with cse'
+        ],
+        default: 'stock'
     },
     customerName:{
         type: String,
