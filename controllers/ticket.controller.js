@@ -4153,7 +4153,7 @@ const getAllTickets = async (req, res) => {
     //get the value of isTechnicianPaymentSuccessDate for ticket id 689dd6c6893372527da66386
     const ticketId = "689dd6c6893372527da66386";
     const ticket = await Ticket.find().select("isTechnicianPaymentSuccessDate");
-    console.log("Tickets", ticket);
+    // console.log("Tickets", ticket);
     // Change the sorting logic to use dueDate as default
     const sortCriteria = {};
     if (dateType === "creationDate") {

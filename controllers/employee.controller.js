@@ -217,7 +217,7 @@ exports.updateEmployeeBySuperAdmin = async (req, res) => {
       const key = `${folder}/${timestamp}.${fileExtension}`;
 
       const params = {
-        Bucket: process.env.AWS_S3_PERSONASAL_FILE_BUCKET_NAME,
+        Bucket: process.env.AWS_S3_BUCKET_NAME,
         Key: key,
         Body: file.buffer,
         ContentType: file.mimetype,
@@ -235,7 +235,7 @@ exports.updateEmployeeBySuperAdmin = async (req, res) => {
         const key = url.split("/").slice(3).join("/");
         await s3
           .deleteObject({
-            Bucket: process.env.AWS_S3_PERSONASAL_FILE_BUCKET_NAME,
+            Bucket: process.env.AWS_S3_BUCKET_NAME,
             Key: key,
           })
           .promise();
@@ -547,7 +547,7 @@ if (!passwordValidation.valid) {
       const key = `${folder}/${timestamp}.${fileExtension}`;
 
       const params = {
-        Bucket: process.env.AWS_S3_PERSONASAL_FILE_BUCKET_NAME,
+        Bucket: process.env.AWS_S3_BUCKET_NAME,
         Key: key,
         Body: file.buffer,
         ContentType: file.mimetype,

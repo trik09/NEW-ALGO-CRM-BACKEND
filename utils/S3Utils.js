@@ -96,7 +96,7 @@ router.post('/generate-presigned-url', async (req, res) => {
     const key = `ticket-attachments/${uuidv4()}.${fileExt}`;
 
     const params = {
-      Bucket: process.env.AWS_S3_PERSONASAL_FILE_BUCKET_NAME,
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
       Key: key,
       ContentType: fileType,
       Expires: 60 * 10, // URL expires in 5 minutes
@@ -108,7 +108,7 @@ router.post('/generate-presigned-url', async (req, res) => {
   //       'Cache-Control': 'public, max-age=5184000'
   //     };
   //   }
-    console.log('Using S3 bucket:', process.env.AWS_S3_PERSONASAL_FILE_BUCKET_NAME);
+    console.log('Using S3 bucket:', process.env.AWS_S3_BUCKET_NAME);
 
     const presignedUrl = await s3.getSignedUrlPromise('putObject', params);
 
