@@ -120,13 +120,51 @@ exports.bulkCreateAccessoryMasters = async (req, res) => {
       warnatyStatus: acc.warnatyStatus || acc.warrantyStatus,
     }));
 
-    const createdAccessories = await accessoryMasterModel.insertMany(
-      accessories
+    // 1. Get existing accessoryIds to skip duplicates
+    const allAccessoryIds = accessories
+      .map((a) => a.accessoryId)
+      .filter(Boolean);
+
+    const existingAccessories = await accessoryMasterModel.find(
+      {
+        accessoryId: { $in: allAccessoryIds },
+      },
+      "accessoryId"
     );
+
+    const existingAccessoryIds = new Set(
+      existingAccessories.map((a) => a.accessoryId)
+    );
+
+    const finalAccessoriesToInsert = [];
+    let duplicateCount = 0;
+    const seenAccessoryIds = new Set();
+
+    for (const acc of accessories) {
+      if (
+        acc.accessoryId &&
+        (existingAccessoryIds.has(acc.accessoryId) ||
+          seenAccessoryIds.has(acc.accessoryId))
+      ) {
+        duplicateCount++;
+      } else {
+        finalAccessoriesToInsert.push(acc);
+        if (acc.accessoryId) seenAccessoryIds.add(acc.accessoryId);
+      }
+    }
+
+    let createdAccessories = [];
+    if (finalAccessoriesToInsert.length > 0) {
+      createdAccessories = await accessoryMasterModel.insertMany(
+        finalAccessoriesToInsert
+      );
+    }
 
     res.status(201).json({
       success: true,
-      message: `${createdAccessories.length} Accessories imported successfully`,
+      message: `${createdAccessories.length} Accessories imported successfully. ${duplicateCount} duplicates skipped.`,
+      newCount: createdAccessories.length,
+      duplicateCount: duplicateCount,
       data: createdAccessories,
     });
   } catch (error) {

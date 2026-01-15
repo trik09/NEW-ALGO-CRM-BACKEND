@@ -103,11 +103,45 @@ exports.bulkCreateDeviceMasters = async (req, res) => {
       return d;
     });
 
-    const createdDevices = await DeviceMasterModel.insertMany(devices);
+    // 1. Get existing deviceIds to skip duplicates
+    const allDeviceIds = devices.map((d) => d.deviceId).filter(Boolean);
+
+    const existingDevices = await DeviceMasterModel.find(
+      {
+        deviceId: { $in: allDeviceIds },
+      },
+      "deviceId"
+    );
+
+    const existingDeviceIds = new Set(existingDevices.map((d) => d.deviceId));
+
+    const finalDevicesToInsert = [];
+    let duplicateCount = 0;
+    const seenDeviceIds = new Set();
+
+    for (const device of devices) {
+      if (
+        device.deviceId &&
+        (existingDeviceIds.has(device.deviceId) ||
+          seenDeviceIds.has(device.deviceId))
+      ) {
+        duplicateCount++;
+      } else {
+        finalDevicesToInsert.push(device);
+        if (device.deviceId) seenDeviceIds.add(device.deviceId);
+      }
+    }
+
+    let createdDevices = [];
+    if (finalDevicesToInsert.length > 0) {
+      createdDevices = await DeviceMasterModel.insertMany(finalDevicesToInsert);
+    }
 
     res.status(201).json({
       success: true,
-      message: `${createdDevices.length} Devices imported successfully`,
+      message: `${createdDevices.length} Devices imported successfully. ${duplicateCount} duplicates skipped.`,
+      newCount: createdDevices.length,
+      duplicateCount: duplicateCount,
       data: createdDevices,
     });
   } catch (error) {

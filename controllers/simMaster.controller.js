@@ -154,8 +154,6 @@ exports.bulkCreateSimMasters = async (req, res) => {
       });
     }
 
-    //console.log(rawSims);
-
     // Map fields to match the model schema and handle monthlyDate conversion
     const sims = rawSims.map((sim) => ({
       ...sim,
@@ -177,11 +175,58 @@ exports.bulkCreateSimMasters = async (req, res) => {
       return sim;
     });
 
-    const createdSims = await simMasterModel.insertMany(cleanedSims);
+    // 1. Get existing simNumbers and mobileNumbers to skip duplicates
+    const allSimNumbers = cleanedSims.map((s) => s.simNumber).filter(Boolean);
+    const allMobileNumbers = cleanedSims
+      .map((s) => s.mobileNumber)
+      .filter(Boolean);
+
+    const existingSims = await simMasterModel.find(
+      {
+        $or: [
+          { simNumber: { $in: allSimNumbers } },
+          { mobileNumber: { $in: allMobileNumbers } },
+        ],
+      },
+      "simNumber mobileNumber"
+    );
+
+    const existingSimNums = new Set(existingSims.map((s) => s.simNumber));
+    const existingMobileNums = new Set(existingSims.map((s) => s.mobileNumber));
+
+    const finalSimsToInsert = [];
+    let duplicateCount = 0;
+    const seenSimNums = new Set();
+    const seenMobileNums = new Set();
+
+    for (const sim of cleanedSims) {
+      const isDuplicate =
+        (sim.simNumber &&
+          (existingSimNums.has(sim.simNumber) ||
+            seenSimNums.has(sim.simNumber))) ||
+        (sim.mobileNumber &&
+          (existingMobileNums.has(sim.mobileNumber) ||
+            seenMobileNums.has(sim.mobileNumber)));
+
+      if (isDuplicate) {
+        duplicateCount++;
+      } else {
+        finalSimsToInsert.push(sim);
+        if (sim.simNumber) seenSimNums.add(sim.simNumber);
+        if (sim.mobileNumber) seenMobileNums.add(sim.mobileNumber);
+      }
+    }
+
+    let createdSims = [];
+    if (finalSimsToInsert.length > 0) {
+      createdSims = await simMasterModel.insertMany(finalSimsToInsert);
+    }
 
     res.status(201).json({
       success: true,
-      message: `${createdSims.length} SIMs imported successfully`,
+      message: `${createdSims.length} SIMs imported successfully. ${duplicateCount} duplicates skipped.`,
+      newCount: createdSims.length,
+      duplicateCount: duplicateCount,
       data: createdSims,
     });
   } catch (error) {
