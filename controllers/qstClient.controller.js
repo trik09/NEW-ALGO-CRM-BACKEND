@@ -1511,6 +1511,7 @@ exports.getMainData = async (req, res) => {
       .populate("company")
       .populate("simDetails")
       .populate("deviceDetails")
+      .populate("accessoryDetails")
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 });
