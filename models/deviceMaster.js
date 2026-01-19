@@ -1,74 +1,85 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const statusHistorySchema = new mongoose.Schema({
+const statusHistorySchema = new mongoose.Schema(
+  {
     status: {
-        type: String,
-        enum: [
-            'stock',
-            'sold to customer',
-            'customer demo',
-            'testing',
-            'with technician',
-            'with cse'
-        ],
+      type: String,
+      enum: [
+        "stock",
+        "sold to customer",
+        "customer demo",
+        "testing",
+        "with technician",
+        "with cse",
+      ],
     },
     changedAt: {
-        type: Date,
-        default: Date.now
+      type: Date,
+      default: Date.now,
     },
     changedBy: {
-        type: String 
-    }
-}, { _id: false });
+      type: String,
+    },
+  },
+  { _id: false },
+);
 
-const deviceMasterSchema = new mongoose.Schema({
+const deviceMasterSchema = new mongoose.Schema(
+  {
     deviceManufacturer: {
-        type: String,
+      type: String,
     },
     deviceType: {
-        type: String,
+      type: String,
     },
     deviceModel: {
-        type: String,
+      type: String,
     },
     deviceId: {
-        type: String,
+      type: String,
     },
     invoiceDate: {
-        type: Date,
+      type: Date,
     },
     invoiceNumber: {
-        type: String,
+      type: String,
     },
     deviceAge: {
-        type: String,
+      type: String,
     },
     warrantyPeriod: {
-        type: Number,
+      type: Number,
     },
     warrantyStatus: {
-        type: String,
-        enum: ['active', 'out of warranty']
+      type: String,
+      enum: ["active", "out of warranty"],
     },
     status: {
-        type: String,
-        enum: [
-            'stock',
-            'sold to customer',
-            'customer demo',
-            'testing',
-            'with technician',
-            'with cse'
-        ],
-        default: 'stock'
+      type: String,
+      enum: [
+        "stock",
+        "sold to customer",
+        "customer demo",
+        "testing",
+        "with technician",
+        "with cse",
+      ],
+      default: "stock",
     },
-    customerName:{
-        type:String
+    customerName: {
+      type: String,
+    },
+    demoFromDate: {
+      type: Date,
+    },
+    demoToDate: {
+      type: Date,
     },
 
-    statusHistory: [statusHistorySchema]
+    statusHistory: [statusHistorySchema],
+  },
+  { timestamps: true },
+);
 
-}, { timestamps: true });
-
-const DeviceMaster = mongoose.model('DeviceMaster', deviceMasterSchema);
+const DeviceMaster = mongoose.model("DeviceMaster", deviceMasterSchema);
 module.exports = DeviceMaster;

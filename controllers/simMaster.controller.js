@@ -95,12 +95,16 @@ exports.createSimMaster = async (req, res) => {
       status,
     } = req.body;
 
-    const existingSim = await simMasterModel.findOne({ simNumber });
-    if (existingSim) {
+    console.log(simNumber);
+
+    if(simNumber != undefined){
+      const existingSim = await simMasterModel.findOne({ simNumber });
+      if (existingSim) {
       return res.status(400).json({
         success: false,
         message: "SIM number already exists",
       });
+    }
     }
 
     const simData = {
@@ -249,8 +253,14 @@ exports.updateSimMaster = async (req, res) => {
       });
     }
 
-    const { monthlyDate, purchaseDate, isSimActivated, ...otherUpdates } =
-      req.body;
+    const {
+      monthlyDate,
+      purchaseDate,
+      isSimActivated,
+      demoFromDate,
+      demoToDate,
+      ...otherUpdates
+    } = req.body;
 
     // Start with other updates
     const updates = { ...otherUpdates };
@@ -261,8 +271,13 @@ exports.updateSimMaster = async (req, res) => {
     }
 
     if (purchaseDate !== undefined) {
-      updates.purchaseDate = new Date(purchaseDate);
-    }
+  const parsedDate = new Date(purchaseDate);
+
+  if (!isNaN(parsedDate.getTime())) {
+    updates.purchaseDate = parsedDate;
+  }
+}
+
 
     if (isSimActivated !== undefined) {
       updates.isSimActivated =
