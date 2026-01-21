@@ -1944,7 +1944,7 @@ exports.addTechnicianDuringTicketCreation = async (req, res) => {
       name: "Name",
       nickName: "Nickname",
       email: "Email",
-      phoneNumber: "Phone Number",
+     // phoneNumber: "Phone Number",
       technicianCategoryType:"Technician Type"
       // location: "Location",
       // bankName: "Bank Name",
