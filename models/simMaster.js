@@ -1,85 +1,96 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const statusHistorySchema = new mongoose.Schema({
+const statusHistorySchema = new mongoose.Schema(
+  {
     status: {
-        type: String,
-        enum: [
-            'stock',
-            'sold to customer',
-            'customer demo',
-            'testing',
-            'with technician',
-            'with cse'
-        ],
+      type: String,
+      enum: [
+        "stock",
+        "sold to customer",
+        "customer demo",
+        "testing",
+        "with technician",
+        "with cse",
+      ],
     },
     changedAt: {
-        type: Date,
-        default: Date.now
+      type: Date,
+      default: Date.now,
     },
     changedBy: {
-        type: String 
-    }
-}, { _id: false });
+      type: String,
+    },
+  },
+  { _id: false },
+);
 
-const simMasterSchema = new mongoose.Schema({
+const simMasterSchema = new mongoose.Schema(
+  {
     simOwner: {
-        type: String,
+      type: String,
     },
     simProvider: {
-        type: String,
+      type: String,
     },
     simType: {
-        type: String,
+      type: String,
     },
     simNumber: {
-        type: String,
-        index: true, // Add index for performance on uniqueness checks
+      type: String,
+      index: true, // Add index for performance on uniqueness checks
     },
     mobileNumber: {
-        type: String,
+      type: String,
     },
     purchaseDate: {
-        type: Date,
+      type: Date,
     },
     isSimActivated: {
-        type: Boolean,
-        default: false
+      type: Boolean,
+      default: false,
     },
     activationDate: {
-        type: String,
+      type: String,
     },
     monthlyRental: {
-        type: String,
-    }, 
+      type: String,
+    },
     monthlyBillingDate: {
-        type: String,
+      type: String,
     },
     monthlyData: {
-        type: String,
+      type: String,
     },
     simAge: {
-        type: String,
+      type: String,
     },
     customerOrAlgoEmployeeName: {
-        type: String,
+      type: String,
+    },
+    demoFromDate: {
+      type: Date,
+    },
+    demoToDate: {
+      type: Date,
     },
 
     status: {
-        type: String,
-        enum: [
-            'stock',
-            'sold to customer',
-            'customer demo',
-            'testing',
-            'with technician',
-            'with cse'
-        ],
-        default: 'stock'
+      type: String,
+      enum: [
+        "stock",
+        "sold to customer",
+        "customer demo",
+        "testing",
+        "with technician",
+        "with cse",
+      ],
+      default: "stock",
     },
 
-    statusHistory: [statusHistorySchema]
+    statusHistory: [statusHistorySchema],
+  },
+  { timestamps: true },
+);
 
-}, { timestamps: true});
-
-const simMaster = mongoose.model('SimMaster', simMasterSchema);
+const simMaster = mongoose.model("SimMaster", simMasterSchema);
 module.exports = simMaster;

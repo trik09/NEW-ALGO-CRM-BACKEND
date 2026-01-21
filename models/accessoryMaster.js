@@ -1,59 +1,72 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const accessoryMasterSchema = new mongoose.Schema({
+const accessoryMasterSchema = new mongoose.Schema(
+  {
     accessoryManufacturer: {
-        type: String,
-       
+      type: String,
     },
     accessoryType: {
-        type: String,
-        enum:["RFID","Fuel sensor - wired","Fuel sensor - wireless","RelayTemperature sensor","Door sensor","Drum rotation sensor","SD card","4g router","wifi dongle"]
-        
+      type: String,
+      enum: [
+        "RFID",
+        "Fuel sensor - wired",
+        "Fuel sensor - wireless",
+        "RelayTemperature sensor",
+        "Door sensor",
+        "Drum rotation sensor",
+        "SD card",
+        "4g router",
+        "wifi dongle",
+      ],
     },
     accessoryModel: {
-        type: String,
-    
+      type: String,
     },
     accessoryId: {
-        type: String,
-    
+      type: String,
     },
     invoiceDate: {
-        type: String,
-    
+      type: String,
     },
     invoiceNumber: {
-        type: String,
-    
+      type: String,
     },
-    Age:{
-        type: Number,
+    Age: {
+      type: Number,
     },
     warrantyPeriod: {
-        type: Number, // in months
-    
+      type: Number, // in months
     },
-    warnatyStatus:{
-        type: String,
-       
+    warnatyStatus: {
+      type: String,
     },
     status: {
-        type: String,
-        enum: [
-            'stock',
-            'sold to customer',
-            'customer demo',
-            'testing',
-            'with technician',
-            'with cse'
-        ],
-        default: 'stock'
+      type: String,
+      enum: [
+        "stock",
+        "sold to customer",
+        "customer demo",
+        "testing",
+        "with technician",
+        "with cse",
+      ],
+      default: "stock",
     },
-    customerName:{
-        type: String,
+    customerName: {
+      type: String,
     },
-    
-}, {timestamps: true});
+    demoFromDate: {
+      type: Date,
+    },
+    demoToDate: {
+      type: Date,
+    },
+  },
+  { timestamps: true },
+);
 
-const AccessoryMaster = mongoose.model('AccessoryMaster', accessoryMasterSchema);
+const AccessoryMaster = mongoose.model(
+  "AccessoryMaster",
+  accessoryMasterSchema,
+);
 module.exports = AccessoryMaster;
