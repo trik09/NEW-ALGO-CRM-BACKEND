@@ -15,7 +15,7 @@ router.get(
 router.post(
   "/create-qstClient",
   isAuthenticated,
-  authorizeRoles("superAdmin", "admin"),
+  authorizeRoles("superAdmin", "admin", "store"),
   qstClientController.createSingleQSTClient
 );
 
@@ -29,7 +29,7 @@ router.get(
 router.delete(
   "/deleteQstClient/:id",
   isAuthenticated,
-  authorizeRoles("superAdmin", "admin"),
+  authorizeRoles("superAdmin", "admin", "store"),
   qstClientController.deleteQSTClientById
 );
 
@@ -41,7 +41,7 @@ router.get(
 router.patch(
   "/update-qstClient/:id",
   isAuthenticated,
-  authorizeRoles("superAdmin", "admin"),
+  authorizeRoles("superAdmin", "admin", "store"),
   qstClientController.updateSingleQSTClient
 );
 
