@@ -68,8 +68,8 @@ app.use('/api/qstClient',require('./routes/qstClient.route'));
 app.use('/api/employee',require('./routes/employee.route'));
 app.use('/api/ticketCloser',require('./routes/ticketCloser.route'));
 app.use('/api/technician',require('./routes/technician.route'));
-//app.use('/api/issueFound',require('./routes/issueFound.route'));
-//app.use('/api/resolution',require('./routes/resolution.route'));
+app.use('/api/issueFound',require('./routes/issueFound.route'));
+app.use('/api/resolution',require('./routes/resolution.route'));
 app.use('/api/project',require('./routes/project.route'));
 app.use('/api/ticket',require('./routes/ticket.route')); 
 app.use('/api/dashboard',require('./routes/maindashboard.routes'))
