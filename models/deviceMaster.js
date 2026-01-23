@@ -13,47 +13,26 @@ const statusHistorySchema = new mongoose.Schema(
         "with cse",
       ],
     },
-    changedAt: {
-      type: Date,
-      default: Date.now,
-    },
-    changedBy: {
-      type: String,
-    },
+    changedAt: { type: Date, default: Date.now },
+    changedBy: { type: String },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const deviceMasterSchema = new mongoose.Schema(
   {
-    deviceManufacturer: {
-      type: String,
-    },
-    deviceType: {
-      type: String,
-    },
-    deviceModel: {
-      type: String,
-    },
-    deviceId: {
-      type: String,
-    },
-    invoiceDate: {
-      type: Date,
-    },
-    invoiceNumber: {
-      type: String,
-    },
-    deviceAge: {
-      type: String,
-    },
-    warrantyPeriod: {
-      type: Number,
-    },
-    warrantyStatus: {
-      type: String,
-      enum: ["active", "out of warranty"],
-    },
+    deviceManufacturer: { type: String },
+    deviceType: { type: String },
+    deviceModel: { type: String },
+    deviceId: { type: String },
+
+    invoiceDate: { type: Date },
+    invoiceNumber: { type: String },
+    deviceAge: { type: String },
+
+    warrantyPeriod: { type: Number },
+    warrantyStatus: { type: String, enum: ["active", "out of warranty"] },
+
     status: {
       type: String,
       enum: [
@@ -66,19 +45,27 @@ const deviceMasterSchema = new mongoose.Schema(
       ],
       default: "stock",
     },
-    customerName: {
+
+    // ✅ NEW: like Accessory
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: "assignedToModel",
+      default: null,
+    },
+    assignedToModel: {
       type: String,
-    },
-    demoFromDate: {
-      type: Date,
-    },
-    demoToDate: {
-      type: Date,
+      enum: ["QstClient", "Technician", "Employee"],
+      default: null,
     },
 
+    // ✅ keep demo dates
+    demoFromDate: { type: Date },
+    demoToDate: { type: Date },
+
+    stockEnteredAt: { type: Date },
     statusHistory: [statusHistorySchema],
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 const DeviceMaster = mongoose.model("DeviceMaster", deviceMasterSchema);

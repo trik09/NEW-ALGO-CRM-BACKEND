@@ -1,10 +1,21 @@
 const mongoose = require("mongoose");
 
+const statusHistorySchema = new mongoose.Schema(
+  {
+    status: {
+      type: String,
+      enum: ["stock", "sold to customer", "customer demo", "testing", "with technician", "with cse"],
+    },
+    changedAt: { type: Date, default: Date.now },
+    changedBy: { type: String },
+  },
+  { _id: false }
+);
+
 const accessoryMasterSchema = new mongoose.Schema(
   {
-    accessoryManufacturer: {
-      type: String,
-    },
+    accessoryManufacturer: String,
+
     accessoryType: {
       type: String,
       enum: [
@@ -19,54 +30,50 @@ const accessoryMasterSchema = new mongoose.Schema(
         "wifi dongle",
       ],
     },
-    accessoryModel: {
-      type: String,
-    },
-    accessoryId: {
-      type: String,
-    },
-    invoiceDate: {
-      type: String,
-    },
-    invoiceNumber: {
-      type: String,
-    },
-    Age: {
-      type: Number,
-    },
-    warrantyPeriod: {
-      type: Number, // in months
-    },
+
+    accessoryModel: String,
+    accessoryId: String,
+
+    invoiceDate: { type: Date },
+    invoiceNumber: String,
+
+    Age: Number,
+
+    warrantyPeriod: Number, // months
+
     warnatyStatus: {
       type: String,
+      enum: ["active", "out of warranty"],
     },
+
     status: {
       type: String,
-      enum: [
-        "stock",
-        "sold to customer",
-        "customer demo",
-        "testing",
-        "with technician",
-        "with cse",
-      ],
+      enum: ["stock", "sold to customer", "customer demo", "testing", "with technician", "with cse"],
       default: "stock",
     },
-    customerName: {
+
+    // ✅ assignment (polymorphic reference)
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: "assignedToModel",
+      default: null,
+    },
+    assignedToModel: {
       type: String,
+      enum: ["Employee", "Technician", "QstClient"], // ✅ CHANGE to your actual model names
+      default: null,
     },
-    demoFromDate: {
-      type: Date,
-    },
-    demoToDate: {
-      type: Date,
-    },
+
+    customerName: String,
+
+    demoFromDate: Date,
+    demoToDate: Date,
+
+    stockEnteredAt: { type: Date },
+    statusHistory: [statusHistorySchema],
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-const AccessoryMaster = mongoose.model(
-  "AccessoryMaster",
-  accessoryMasterSchema,
-);
+const AccessoryMaster = mongoose.model("AccessoryMaster", accessoryMasterSchema);
 module.exports = AccessoryMaster;

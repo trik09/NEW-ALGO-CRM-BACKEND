@@ -13,66 +13,36 @@ const statusHistorySchema = new mongoose.Schema(
         "with cse",
       ],
     },
-    changedAt: {
-      type: Date,
-      default: Date.now,
-    },
-    changedBy: {
-      type: String,
-    },
+    changedAt: { type: Date, default: Date.now },
+    changedBy: { type: String },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const simMasterSchema = new mongoose.Schema(
   {
-    simOwner: {
-      type: String,
-    },
-    simProvider: {
-      type: String,
-    },
-    simType: {
-      type: String,
-    },
-    simNumber: {
-      type: String,
-      index: true, // Add index for performance on uniqueness checks
-    },
-    mobileNumber: {
-      type: String,
-    },
-    purchaseDate: {
-      type: Date,
-    },
-    isSimActivated: {
-      type: Boolean,
-      default: false,
-    },
-    activationDate: {
-      type: String,
-    },
-    monthlyRental: {
-      type: String,
-    },
-    monthlyBillingDate: {
-      type: String,
-    },
-    monthlyData: {
-      type: String,
-    },
-    simAge: {
-      type: String,
-    },
-    customerOrAlgoEmployeeName: {
-      type: String,
-    },
-    demoFromDate: {
-      type: Date,
-    },
-    demoToDate: {
-      type: Date,
-    },
+    simOwner: String,
+    simProvider: String,
+    simType: String,
+
+    simNumber: { type: String, index: true },
+
+    mobileNumber: String,
+    purchaseDate: Date,
+
+    isSimActivated: { type: Boolean, default: false },
+    activationDate: String,
+
+    monthlyRental: String,
+    monthlyBillingDate: String,
+    monthlyData: String,
+    simAge: String,
+
+    // (keep your old string field if you want)
+    customerOrAlgoEmployeeName: String,
+
+    demoFromDate: Date,
+    demoToDate: Date,
 
     status: {
       type: String,
@@ -87,10 +57,26 @@ const simMasterSchema = new mongoose.Schema(
       default: "stock",
     },
 
+    // ✅ NEW: assignment like accessory/device
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: "assignedToModel",
+      default: null,
+    },
+    assignedToModel: {
+      type: String,
+      enum: ["Technician", "Employee", "QstClient"],
+      default: null,
+    },
+    assignedToName: { type: String, default: "" },
+
+    // ✅ NEW: stock timing
+    stockEnteredAt: { type: Date },
+
     statusHistory: [statusHistorySchema],
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-const simMaster = mongoose.model("SimMaster", simMasterSchema);
-module.exports = simMaster;
+const SimMaster = mongoose.model("SimMaster", simMasterSchema);
+module.exports = SimMaster;
