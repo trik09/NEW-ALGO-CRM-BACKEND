@@ -1735,15 +1735,15 @@ exports.addSingleTechnician = async (req, res) => {
 
     // Validate required fields
     const requiredFields = {
-      beneficiaryId: "Beneficiary ID",
+     // beneficiaryId: "Beneficiary ID",
       name: "Name",
       nickName: "Nickname",
-      location: "Location",
-      bankName: "Bank Name",
-      accountNumber: "Account Number",
-      ifscCode: "IFSC Code",
-      beneficiaryName: "Beneficiary Name",
-      phoneNumber: "Phone Number",
+      // location: "Location",
+      // bankName: "Bank Name",
+      // accountNumber: "Account Number",
+      // ifscCode: "IFSC Code",
+      // beneficiaryName: "Beneficiary Name",
+      // phoneNumber: "Phone Number",
       technicianCategoryType: "Technician type"
     };
 
