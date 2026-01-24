@@ -411,13 +411,19 @@ exports.createEmployeeBySuperAdmin = async (req, res) => {
     console.log("Files:", req.files); // Should contain: photo, aadharImage, panCardImage
    // console.log("Original zone:", zone, "Formatted zone:", formattedZone);
     // Required field validation
-    if (!name || !email || !phoneNumber || !password || !role || !formattedZone) {
+    if (!name || !email || !phoneNumber || !password || !role ) {
       return res.status(400).json({
         success: false,
         message: "Name, email, password, mobile no. and role, zone are required.",
       });
     }
 
+    if(role === "cse" && !formattedZone){
+      return res.status(400).json({
+        success: false,
+        message: "Zone is required for CSE.",
+      });
+    }
 
 
 
