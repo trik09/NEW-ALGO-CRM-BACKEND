@@ -24,13 +24,13 @@ router.post(
 router.put(
   "/update-accessoryMaster/:id",
   isAuthenticated,
-  authorizeRoles("superAdmin", "admin", "cse"),
+  authorizeRoles("superAdmin", "admin", "cse", "store"),
   accessoryMasterController.updateAccessoryMasters
 );
 router.delete(
   "/delete-accessoryMaster/:id",
   isAuthenticated,
-  authorizeRoles("superAdmin", "admin", "cse"),
+  authorizeRoles("superAdmin", "admin", "cse", "store"),
   accessoryMasterController.deleteAccessoryMasters
 );
 

@@ -24,13 +24,13 @@ router.post(
 router.put(
   "/update-deviceMasters/:id",
   isAuthenticated,
-  authorizeRoles("superAdmin", "admin", "cse"),
+  authorizeRoles("superAdmin", "admin", "cse", "store"),
   deviceMasterController.updateDeviceMasters
 );
 router.delete(
   "/delete-deviceMasters/:id",
   isAuthenticated,
-  authorizeRoles("superAdmin", "admin", "cse"),
+  authorizeRoles("superAdmin", "admin", "cse", "store"),
   deviceMasterController.deleteDeviceMasters
 );
 

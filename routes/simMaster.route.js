@@ -24,13 +24,13 @@ router.post(
 router.put(
   "/update-simMasters/:id",
   isAuthenticated,
-  authorizeRoles("superAdmin", "admin", "cse"),
+  authorizeRoles("superAdmin", "admin", "cse", "store"),
   simMasterController.updateSimMaster
 );
 router.delete(
   "/delete-simMasters/:id",
   isAuthenticated,
-  authorizeRoles("superAdmin", "admin", "cse"),
+  authorizeRoles("superAdmin", "admin", "cse", "store"),
   simMasterController.deleteSimMaster
 );
 

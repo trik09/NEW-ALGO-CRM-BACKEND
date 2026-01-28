@@ -103,7 +103,7 @@ exports.createEmployee = async (req, res) => {
 };
 
 exports.updateEmployeeBySuperAdmin = async (req, res) => {
-  
+
   try {
 
     const { id } = req.params;
@@ -117,7 +117,7 @@ exports.updateEmployeeBySuperAdmin = async (req, res) => {
       panNumber,
       isTelecaller,
       zone,
-      serviceStates 
+      serviceStates
     } = req.body;
 
     // Validate employee exists
@@ -140,7 +140,7 @@ exports.updateEmployeeBySuperAdmin = async (req, res) => {
       });
     }
 
-    
+
 
     const phoneRegex = /^[6-9]\d{9}$/;
     if (phoneNumber && !phoneRegex.test(phoneNumber)) {
@@ -175,7 +175,7 @@ exports.updateEmployeeBySuperAdmin = async (req, res) => {
     }
 
 
-        // Handle serviceStates - Parse JSON string if it's a string
+    // Handle serviceStates - Parse JSON string if it's a string
     let serviceStatesArray = [];
     if (serviceStates) {
       try {
@@ -185,13 +185,13 @@ exports.updateEmployeeBySuperAdmin = async (req, res) => {
         } else if (Array.isArray(serviceStates)) {
           serviceStatesArray = serviceStates;
         }
-        
+
         // Validate that serviceStates contains valid ObjectIds
         if (serviceStatesArray.length > 0) {
-          const isValidObjectId = serviceStatesArray.every(id => 
+          const isValidObjectId = serviceStatesArray.every(id =>
             mongoose.Types.ObjectId.isValid(id)
           );
-          
+
           if (!isValidObjectId) {
             return res.status(400).json({
               success: false,
@@ -292,7 +292,7 @@ exports.updateEmployeeBySuperAdmin = async (req, res) => {
     if (panNumber) employee.panNumber = panNumber;
     if (isTelecaller) employee.isTelecaller = isTelecaller;
 
-     // Update serviceStates if provided
+    // Update serviceStates if provided
     if (serviceStates !== undefined) {
       employee.serviceStates = serviceStatesArray;
     }
@@ -402,23 +402,23 @@ exports.createEmployeeBySuperAdmin = async (req, res) => {
       zone,
       isTelecaller,
       serviceStates,
-    
+
     } = req.body;
     // console.log("THis running")
     // Format the zone input
     const formattedZone = formatZone(zone);
     // console.log("Body:", req.body);
     console.log("Files:", req.files); // Should contain: photo, aadharImage, panCardImage
-   // console.log("Original zone:", zone, "Formatted zone:", formattedZone);
+    // console.log("Original zone:", zone, "Formatted zone:", formattedZone);
     // Required field validation
-    if (!name || !email || !phoneNumber || !password || !role ) {
+    if (!name || !email || !phoneNumber || !password || !role) {
       return res.status(400).json({
         success: false,
         message: "Name, email, password, mobile no. and role, zone are required.",
       });
     }
 
-    if(role === "cse" && !formattedZone){
+    if (role === "cse" && !formattedZone) {
       return res.status(400).json({
         success: false,
         message: "Zone is required for CSE.",
@@ -426,10 +426,8 @@ exports.createEmployeeBySuperAdmin = async (req, res) => {
     }
 
 
-
-
     // Role validation
-    const validRoles = ["cse", "admin","store"];
+    const validRoles = ["cse", "admin", "store"];
     if (!validRoles.includes(role)) {
       return res.status(400).json({
         success: false,
@@ -480,63 +478,63 @@ exports.createEmployeeBySuperAdmin = async (req, res) => {
     }
 
     const validatePassword = (password) => {
-  // Check length
-  if (password.length < 8) {
-    return {
-      valid: false,
-      message: "Password must be at least 8 characters long"
+      // Check length
+      if (password.length < 8) {
+        return {
+          valid: false,
+          message: "Password must be at least 8 characters long"
+        };
+      }
+
+      // Check complexity (all other requirements in one regex)
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/.test(password)) {
+        return {
+          valid: false,
+          message: "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)"
+        };
+      }
+
+      return { valid: true };
     };
-  }
 
-  // Check complexity (all other requirements in one regex)
-  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/.test(password)) {
-    return {
-      valid: false,
-      message: "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)"
-    };
-  }
+    // ---------------------- For service staetes validation ----------------------
+    let serviceStatesArr = serviceStates || [];
+    if (typeof serviceStatesArr === 'string') {
+      try { serviceStatesArr = JSON.parse(serviceStatesArr); } catch (e) { /* ignore */ }
+    }
 
-  return { valid: true }; 
-};
+    if (!Array.isArray(serviceStatesArr)) serviceStatesArr = [];
 
-// ---------------------- For service staetes validation ----------------------
-let serviceStatesArr = serviceStates || [];
-if (typeof serviceStatesArr === 'string') {
-  try { serviceStatesArr = JSON.parse(serviceStatesArr); } catch (e) { /* ignore */ }
-}
-
-if (!Array.isArray(serviceStatesArr)) serviceStatesArr = [];
-
-// Validate serviceStates if provided
+    // Validate serviceStates if provided
     if (serviceStatesArr && serviceStatesArr.length > 0) {
       // Step 1: Check valid ObjectId format
       if (!serviceStatesArr?.every(id => mongoose.Types.ObjectId.isValid(id))) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Invalid state ID(s)" 
+        return res.status(400).json({
+          success: false,
+          message: "Invalid state ID(s)"
         });
       }
 
       // Step 2: Check existence in State collection
-      const statesFromDb = await State.find({ 
-        _id: { $in: serviceStatesArr } 
+      const statesFromDb = await State.find({
+        _id: { $in: serviceStatesArr }
       }).select("_id");
 
       if (statesFromDb.length !== serviceStatesArr.length) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Some state IDs do not exist" 
+        return res.status(400).json({
+          success: false,
+          message: "Some state IDs do not exist"
         });
       }
     }
-// ---------------------/
-const passwordValidation = validatePassword(password);
-if (!passwordValidation.valid) {
-  return res.status(400).json({
-    success: false,
-    message: passwordValidation.message,
-  });
-}
+    // ---------------------/
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: passwordValidation.message,
+      });
+    }
 
     console.log("Received files:", req.files); // Debug log
 
@@ -608,21 +606,22 @@ if (!passwordValidation.valid) {
 
     await newEmployee.save();
 
-     const html = welcomeTemplateOfQSTClientsTemplate(
-        newEmployee.name,
-        newEmployee.email,
-        // tempPassword,
-        password,
-        `${process.env.CLIENT_BASE_URL}/login`
-      );
-       try{
+    const html = welcomeTemplateOfQSTClientsTemplate(
+      newEmployee.name,
+      newEmployee.email,
+      // tempPassword,
+      password,
+      `${process.env.CLIENT_BASE_URL}/login`
+    );
+    try {
       await sendEmail({
         to: newEmployee.email,
         subject: "Welcome on Quik Serv",
         html,
-      }); } catch (err){
-        console.error(`Email sending failed to ${newEmployee.email}:`, err.message);
-      }
+      });
+    } catch (err) {
+      console.error(`Email sending failed to ${newEmployee.email}:`, err.message);
+    }
 
     res.status(201).json({
       success: true,
@@ -654,7 +653,7 @@ function formatZone(zone) {
   if (!zone || typeof zone !== 'string') {
     return zone;
   }
-  
+
   // Convert to lowercase and remove all spaces
   return zone.toLowerCase().replace(/\s+/g, '');
 }
