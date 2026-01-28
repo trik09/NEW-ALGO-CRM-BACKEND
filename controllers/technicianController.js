@@ -103,7 +103,7 @@ exports.getAllTechniciansWithSearchAndFilter = async (req, res) => {
     const [totalItems, technicians] = await Promise.all([
       Technician.countDocuments(query),
       Technician.find(query)
-      .populate("technicianCreator", "name")
+        .populate("technicianCreator", "name")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit)),
@@ -162,7 +162,7 @@ exports.bulkUpdateTechnicianCategories = async (req, res) => {
 
     // Get details of updated technicians
     const updatedTechnicians = await Technician.find({
-      _id: { 
+      _id: {
         $in: (await Technician.find({
           $or: [
             { technicianCategoryType: { $exists: false } },
@@ -929,7 +929,7 @@ exports.ExportgetAllNewViewTechnicians = async (req, res) => {
 
 
 
- 
+
 
 exports.bulkCreateTechnicians = async (req, res) => {
   try {
@@ -1010,18 +1010,52 @@ exports.getAllActiveAssignedTicket = async (req, res) => {
   }
 };
 
+// exports.getParticularActiveAssignedTicket = async (req, res) => {
+//   try {
+//     const { technicianId, ticketId } = req.params;
+//     console.log(technicianId);
+
+//     if (!ticketId) {
+//       return res.status(400).json({ message: "Ticket ID is required" });
+//     }
+
+//     if (!technicianId) {
+//       return res.status(400).json({ message: "Technician ID is required" });
+//     }
+
+//     if (!mongoose.Types.ObjectId.isValid(ticketId)) {
+//       return res.status(400).json({ message: "Invalid ticket ID format" });
+//     }
+//     if (!mongoose.Types.ObjectId.isValid(technicianId)) {
+//       return res.status(400).json({ message: "Invalid technician ID format" });
+//     }
+//     const tickets = await Ticket.find({
+//       _id: ticketId,
+//       technician: technicianId,
+//       isTicketClosed: false,
+//     })
+//       .populate("qstClientName")
+//       .populate("taskType")
+//       .populate("deviceType")
+//       .populate("assignee")
+//       .populate("technician") // optionally populate technician data too
+//       .populate("creator");
+
+//     res.status(200).json(tickets);
+//   } catch (error) {
+//     console.error("Error fetching tickets:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
+
+
+
 exports.getParticularActiveAssignedTicket = async (req, res) => {
   try {
     const { technicianId, ticketId } = req.params;
-    console.log(technicianId);
 
-    if (!ticketId) {
-      return res.status(400).json({ message: "Ticket ID is required" });
-    }
-
-    if (!technicianId) {
-      return res.status(400).json({ message: "Technician ID is required" });
-    }
+    if (!ticketId) return res.status(400).json({ message: "Ticket ID is required" });
+    if (!technicianId) return res.status(400).json({ message: "Technician ID is required" });
 
     if (!mongoose.Types.ObjectId.isValid(ticketId)) {
       return res.status(400).json({ message: "Invalid ticket ID format" });
@@ -1029,24 +1063,175 @@ exports.getParticularActiveAssignedTicket = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(technicianId)) {
       return res.status(400).json({ message: "Invalid technician ID format" });
     }
-    const tickets = await Ticket.find({
-      _id: ticketId,
-      technician: technicianId,
-      isTicketClosed: false,
-    })
-      .populate("qstClientName")
-      .populate("taskType")
-      .populate("deviceType")
-      .populate("assignee")
-      .populate("technician") // optionally populate technician data too
-      .populate("creator");
 
-    res.status(200).json(tickets);
+    const ticketObjectId = new mongoose.Types.ObjectId(ticketId);
+    const techObjectId = new mongoose.Types.ObjectId(technicianId);
+
+    const tickets = await Ticket.aggregate([
+      {
+        $match: {
+          _id: ticketObjectId,
+          technician: techObjectId,
+          isTicketClosed: false,
+        },
+      },
+
+      // ✅ populate qstClientName
+      {
+        $lookup: {
+          from: "qstclients",
+          localField: "qstClientName",
+          foreignField: "_id",
+          as: "qstClientName",
+        },
+      },
+      { $unwind: { path: "$qstClientName", preserveNullAndEmptyArrays: true } },
+
+      // ✅ populate taskType
+      {
+        $lookup: {
+          from: "tasks",
+          localField: "taskType",
+          foreignField: "_id",
+          as: "taskType",
+        },
+      },
+      { $unwind: { path: "$taskType", preserveNullAndEmptyArrays: true } },
+
+      // ✅ populate deviceType
+      {
+        $lookup: {
+          from: "devices",
+          localField: "deviceType",
+          foreignField: "_id",
+          as: "deviceType",
+        },
+      },
+      { $unwind: { path: "$deviceType", preserveNullAndEmptyArrays: true } },
+
+      // ✅ populate assignee (Employee)
+      {
+        $lookup: {
+          from: "employees",
+          localField: "assignee",
+          foreignField: "_id",
+          as: "assignee",
+        },
+      },
+      { $unwind: { path: "$assignee", preserveNullAndEmptyArrays: true } },
+
+      // ✅ populate technician
+      {
+        $lookup: {
+          from: "technicians",
+          localField: "technician",
+          foreignField: "_id",
+          as: "technician",
+        },
+      },
+      { $unwind: { path: "$technician", preserveNullAndEmptyArrays: true } },
+
+      // ✅ populate creator
+      {
+        $lookup: {
+          from: "employees",
+          localField: "creator",
+          foreignField: "_id",
+          as: "creator",
+        },
+      },
+      { $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } },
+
+      // ✅ Lookup MainData for all vehicleNumbers in this ticket
+      {
+        $lookup: {
+          from: "maindatas",
+          let: { regNos: "$vehicleNumbers.vehicleNumber" },
+          pipeline: [
+            { $match: { $expr: { $in: ["$registrationNumber", "$$regNos"] } } },
+
+            // ✅ simDetails (remove statusHistory)
+            {
+              $lookup: {
+                from: "simmasters",
+                localField: "simDetails",
+                foreignField: "_id",
+                as: "simDetails",
+                pipeline: [{ $project: { statusHistory: 0, __v: 0 } }],
+              },
+            },
+            { $unwind: { path: "$simDetails", preserveNullAndEmptyArrays: true } },
+
+            // ✅ deviceDetails (remove statusHistory)
+            {
+              $lookup: {
+                from: "devicemasters",
+                localField: "deviceDetails",
+                foreignField: "_id",
+                as: "deviceDetails",
+                pipeline: [{ $project: { statusHistory: 0, __v: 0 } }],
+              },
+            },
+            { $unwind: { path: "$deviceDetails", preserveNullAndEmptyArrays: true } },
+
+            // ✅ accessoryDetails (remove statusHistory)
+            {
+              $lookup: {
+                from: "accessorymasters",
+                localField: "accessoryDetails",
+                foreignField: "_id",
+                as: "accessoryDetails",
+                pipeline: [{ $project: { statusHistory: 0, __v: 0 } }],
+              },
+            },
+
+            { $project: { __v: 0 } },
+          ],
+          as: "attachedMainData",
+        },
+      },
+
+      // ✅ merge MainData into vehicleNumbers items
+      {
+        $addFields: {
+          vehicleNumbers: {
+            $map: {
+              input: "$vehicleNumbers",
+              as: "v",
+              in: {
+                $mergeObjects: [
+                  "$$v",
+                  {
+                    mainData: {
+                      $first: {
+                        $filter: {
+                          input: "$attachedMainData",
+                          as: "m",
+                          cond: { $eq: ["$$m.registrationNumber", "$$v.vehicleNumber"] },
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+
+      // ✅ remove extra array
+      { $project: { attachedMainData: 0 } },
+    ]);
+
+    // Keep same shape as your old API: it returned an array
+    return res.status(200).json(tickets);
   } catch (error) {
     console.error("Error fetching tickets:", error);
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
 
 exports.exportsFiltTechnicians = async (req, res) => {
   try {
@@ -1068,8 +1253,8 @@ exports.exportsFiltTechnicians = async (req, res) => {
         $lte: to,
       },
     })
-    .populate("technicianCreator", "name")
-    .sort({ createdAt: -1 });
+      .populate("technicianCreator", "name")
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -1162,10 +1347,10 @@ exports.savedImageToParticularVehicalByTechnician = async (req, res) => {
       return res.status(404).json({ message: "Ticket not found" });
     }
 
-    if(ticket.isTicketClosed){
-       return res.status(404).json({ message: "Your assigned ticket is closed." });
+    if (ticket.isTicketClosed) {
+      return res.status(404).json({ message: "Your assigned ticket is closed." });
     }
-  
+
 
     // Handle based on registration status
     if (isRegistered) {
@@ -1308,6 +1493,69 @@ async function handleNewVehicleCreation({
 
 // -------------------------------------------------=====================================
 // Create Technician api
+
+// Update vehicle registration number
+exports.updateVehicleNumber = async (req, res) => {
+  try {
+    const { ticketId, vehicleId } = req.params;
+    const { vehicleNumber } = req.body;
+
+    // Validate required fields
+    if (!ticketId || !vehicleId) {
+      return res.status(400).json({
+        message: "ticketId and vehicleId are required"
+      });
+    }
+
+    if (!vehicleNumber || !vehicleNumber.trim()) {
+      return res.status(400).json({
+        message: "Vehicle number is required"
+      });
+    }
+
+    // Find the ticket
+    const ticket = await Ticket.findById(ticketId);
+    if (!ticket) {
+      return res.status(404).json({ message: "Ticket not found" });
+    }
+
+    // Find the vehicle subdocument
+    const vehicleObjectId = new mongoose.Types.ObjectId(vehicleId);
+    const vehicle = ticket.vehicleNumbers.id(vehicleObjectId);
+
+    if (!vehicle) {
+      return res.status(404).json({ message: "Vehicle not found in ticket" });
+    }
+
+    // Check if the new vehicle number already exists in this ticket (excluding current vehicle)
+    const duplicateVehicle = ticket.vehicleNumbers.find(
+      (v) => v._id.toString() !== vehicleId && v.vehicleNumber === vehicleNumber.trim()
+    );
+
+    if (duplicateVehicle) {
+      return res.status(400).json({
+        message: "Vehicle number already exists in this ticket"
+      });
+    }
+
+    // Update the vehicle number
+    vehicle.vehicleNumber = vehicleNumber.trim();
+    await ticket.save();
+
+    return res.status(200).json({
+      message: "Vehicle number updated successfully",
+      vehicle: vehicle.toObject(),
+    });
+
+  } catch (error) {
+    console.error("Error updating vehicle number:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 
 exports.createTechnician = async (req, res) => {
   try {
@@ -1591,7 +1839,7 @@ exports.updateTechnician = async (req, res) => {
       }
     }
 
-        // 🔎 Check for nickName conflicts (excluding current technician, case-insensitive)
+    // 🔎 Check for nickName conflicts (excluding current technician, case-insensitive)
     if (nickName) {
       const existingWithNick = await Technician.findOne({
         _id: { $ne: technicianId },
@@ -1643,11 +1891,11 @@ exports.updateTechnician = async (req, res) => {
       technician.skills = Array.isArray(skills)
         ? skills.filter((skill) => skill.trim())
         : typeof skills === "string"
-        ? skills
+          ? skills
             .split(",")
             .map((skill) => skill.trim())
             .filter((skill) => skill)
-        : [];
+          : [];
 
       // Validate at least one skill if skills field was provided
       if (technician.skills.length === 0) {
@@ -1684,17 +1932,17 @@ exports.deleteTechnician = async (req, res) => {
     if (!technician) {
       return res.status(404).json({ error: "Technician not found" });
     }
-      const dependentTickets = await Ticket.findOne({ 
-           technician: technicianId, 
-          isTicketClosed: false
-        });
-    
-        if (dependentTickets) {
-          return res.status(400).json({
-            success: false,
-            message: "Technician is assigned to active open tickets",
-          });
-        }
+    const dependentTickets = await Ticket.findOne({
+      technician: technicianId,
+      isTicketClosed: false
+    });
+
+    if (dependentTickets) {
+      return res.status(400).json({
+        success: false,
+        message: "Technician is assigned to active open tickets",
+      });
+    }
     // Delete the technician
     await Technician.findByIdAndDelete(technicianId);
 
@@ -1705,8 +1953,10 @@ exports.deleteTechnician = async (req, res) => {
     });
   } catch (error) {
     console.error("Error deleting technician:", error);
-    res.status(500).json({ success:false,
-      error: "Server error while deleting technician" });
+    res.status(500).json({
+      success: false,
+      error: "Server error while deleting technician"
+    });
   }
 };
 
@@ -1735,7 +1985,7 @@ exports.addSingleTechnician = async (req, res) => {
 
     // Validate required fields
     const requiredFields = {
-     // beneficiaryId: "Beneficiary ID",
+      // beneficiaryId: "Beneficiary ID",
       name: "Name",
       nickName: "Nickname",
       // location: "Location",
@@ -1763,14 +2013,14 @@ exports.addSingleTechnician = async (req, res) => {
 
     // Email validation (if provided)
     if (email) {
-    if ( !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide a valid email address",
-      });
-    }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({
+          success: false,
+          message: "Please provide a valid email address",
+        });
+      }
 
-     const existingEmail = await Technician.findOne({
+      const existingEmail = await Technician.findOne({
         email: { $regex: new RegExp(`^${email.trim()}$`, "i") }, // case-insensitive
       });
 
@@ -1839,7 +2089,7 @@ exports.addSingleTechnician = async (req, res) => {
     }
 
 
-   // 🔎 Check if nickname already exists (case-insensitive, trimmed)
+    // 🔎 Check if nickname already exists (case-insensitive, trimmed)
     if (nickName) {
       const existingNick = await Technician.findOne({
         nickName: { $regex: new RegExp(`^${nickName.trim()}$`, "i") },
@@ -1883,14 +2133,14 @@ exports.addSingleTechnician = async (req, res) => {
       name: name?.trim(),
       nickName: nickName?.trim(),
       email: email?.trim(),
-       location: location?.trim(),
+      location: location?.trim(),
       phoneNumber,
       bankName,
       accountNumber,
       ifscCode,
       state,
       pincode,
-        beneficiaryName: beneficiaryName?.trim(),
+      beneficiaryName: beneficiaryName?.trim(),
       skills: skillsArray, // Properly formatted skills array
       experience,
       salary,
@@ -1944,8 +2194,8 @@ exports.addTechnicianDuringTicketCreation = async (req, res) => {
       name: "Name",
       nickName: "Nickname",
       email: "Email",
-     // phoneNumber: "Phone Number",
-      technicianCategoryType:"Technician Type"
+      // phoneNumber: "Phone Number",
+      technicianCategoryType: "Technician Type"
       // location: "Location",
       // bankName: "Bank Name",
       // accountNumber: "Account Number",
@@ -1970,14 +2220,14 @@ exports.addTechnicianDuringTicketCreation = async (req, res) => {
 
     // Email validation (if provided)
     if (email) {
-    if ( !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide a valid email address",
-      });
-    } 
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({
+          success: false,
+          message: "Please provide a valid email address",
+        });
+      }
 
-          const existingEmail = await Technician.findOne({
+      const existingEmail = await Technician.findOne({
         email: { $regex: new RegExp(`^${email.trim()}$`, "i") }, // case-insensitive match
       });
 
@@ -2034,42 +2284,42 @@ exports.addTechnicianDuringTicketCreation = async (req, res) => {
     }
 
     // Check if account number already exists
-     if(accountNumber){
-    const existingTechnician = await Technician.findOne({ accountNumber });
-    if (existingTechnician) {
-      return res.status(400).json({
-        success: false,
-        message: "Account number already exists",
-        existingTechnician: {
-          name: existingTechnician.name,
-          phoneNumber: existingTechnician.phoneNumber,
-        },
-      });
+    if (accountNumber) {
+      const existingTechnician = await Technician.findOne({ accountNumber });
+      if (existingTechnician) {
+        return res.status(400).json({
+          success: false,
+          message: "Account number already exists",
+          existingTechnician: {
+            name: existingTechnician.name,
+            phoneNumber: existingTechnician.phoneNumber,
+          },
+        });
+      }
     }
-  }
 
-  console.log(nickName,"nickName------------------------------------------------====");
+    console.log(nickName, "nickName------------------------------------------------====");
 
-  // Check if nickname already exists (case-insensitive)
-if (nickName) {
-  const existingNick = await Technician.findOne({
-    nickName: { $regex: new RegExp(`^${nickName.trim()}$`, "i") }, // case-insensitive exact match
-  });
+    // Check if nickname already exists (case-insensitive)
+    if (nickName) {
+      const existingNick = await Technician.findOne({
+        nickName: { $regex: new RegExp(`^${nickName.trim()}$`, "i") }, // case-insensitive exact match
+      });
 
-  console.log(existingNick,"existingNick");
+      console.log(existingNick, "existingNick");
 
-  if (existingNick) {
-    return res.status(400).json({
-      success: false,
-      message: "Nickname already exists. Please choose another one",
-      existingTechnician: {
-        name: existingNick.name,
-        phoneNumber: existingNick.phoneNumber,
-        nickName: existingNick.nickName,
-      },
-    });
-  }
-}
+      if (existingNick) {
+        return res.status(400).json({
+          success: false,
+          message: "Nickname already exists. Please choose another one",
+          existingTechnician: {
+            name: existingNick.name,
+            phoneNumber: existingNick.phoneNumber,
+            nickName: existingNick.nickName,
+          },
+        });
+      }
+    }
 
     // Skills handling - ensure it's always an array
     let skillsArray = [];
@@ -2094,16 +2344,16 @@ if (nickName) {
     const newTechnician = new Technician({
       beneficiaryId,
       name: name?.trim(),
-  nickName: nickName?.trim(),
-  email: email?.trim(),
-       location: location?.trim(),
+      nickName: nickName?.trim(),
+      email: email?.trim(),
+      location: location?.trim(),
       phoneNumber,
       bankName,
       accountNumber,
       ifscCode,
       state,
       pincode,
-     beneficiaryName: beneficiaryName?.trim(),
+      beneficiaryName: beneficiaryName?.trim(),
       skills: skillsArray, // Properly formatted skills array
       experience,
       technicianCreator: req.user?._id || employeeId,
@@ -2196,8 +2446,8 @@ exports.updateTechnicianAccountDetails = async (req, res) => {
       });
     }
 
-    const {  accountNumber, ifscCode ,nickName} = req.body;
-// accountHolder,
+    const { accountNumber, ifscCode, nickName } = req.body;
+    // accountHolder,
     // Basic validation
     if (!accountNumber || !ifscCode) {
       return res.status(400).json({
@@ -2258,8 +2508,8 @@ exports.updateTechnicianAccountDetails = async (req, res) => {
         message: "Technician not found",
       });
     }
-    console.log("update tech",updatedTechnician);
-    
+    console.log("update tech", updatedTechnician);
+
     res.status(200).json({
       success: true,
       message: "Technician account details updated successfully",
@@ -2276,17 +2526,17 @@ exports.updateTechnicianAccountDetails = async (req, res) => {
 };
 
 
-exports.VerifySecurityCodeOfTechnicianInFileUpload = async(req,res)=>{
+exports.VerifySecurityCodeOfTechnicianInFileUpload = async (req, res) => {
   try {
-    const { technicianSecurityCode:code, technicianId,ticketId } = req.body;
-    
-    console.log(code, technicianId , ticketId,"Incoming payload for verification");
+    const { technicianSecurityCode: code, technicianId, ticketId } = req.body;
 
-      const securityCode1 = await securityCodeModel.findOne({})
-      console.log(securityCode1, "securityCode1===================");
+    console.log(code, technicianId, ticketId, "Incoming payload for verification");
+
+    const securityCode1 = await securityCodeModel.findOne({})
+    console.log(securityCode1, "securityCode1===================");
 
     // Validate input
-    
+
     const securityCode = await securityCodeModel.findOne({
       securityCode: code,
       technicianId,
@@ -2295,25 +2545,25 @@ exports.VerifySecurityCodeOfTechnicianInFileUpload = async(req,res)=>{
       // isUsed: false
     });
 
-    console.log(securityCode,"securityCode123")
-    
+    console.log(securityCode, "securityCode123")
+
     if (!securityCode) {
       return res.status(401).json({
         success: false,
         message: 'Invalid or expired security code'
       });
     }
-    
+
     // Mark code as used (optional - depends on your requirements)
     securityCode.isUsed = true;
     await securityCode.save();
-    
+
     res.json({
       success: true,
       message: 'Code verified successfully',
       ticket: securityCode.ticketId
     });
-    
+
   } catch (error) {
     console.error('Error verifying security code:', error);
     res.status(500).json({

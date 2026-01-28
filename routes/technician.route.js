@@ -59,6 +59,13 @@ router.patch(
   authorizeRoles("superAdmin", "admin"),
   technicianController.updateTechnician
 );
+
+router.patch(
+  "/update-vehicle-number/:ticketId/:vehicleId",
+  technicianController.updateVehicleNumber
+);
+
+
 router.post(
   "/add-technician",
   isAuthenticated,
@@ -83,6 +90,12 @@ router.patch(
 router.post(
   "/media-uploaded-to-particular-vehical",
   technicianController.savedImageToParticularVehicalByTechnician
+);
+
+// Update vehicle registration number
+router.patch(
+  "/update-vehicle-number/:ticketId/:vehicleId",
+  technicianController.updateVehicleNumber
 );
 
 router.get("/exportTechnicians", technicianController.exportsFiltTechnicians);

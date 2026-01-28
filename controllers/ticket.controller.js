@@ -3598,46 +3598,46 @@ const createNewTicket = async (req, res) => {
 
 
     // 🆕 Calculate payment details - FIXED VERSION
-let paymentDetails = null;
+    let paymentDetails = null;
 
-// Debug what we're receiving
-console.log("🔍 Payment Debug - Received:", {
-  paymentGateway: paymentGateway,
-  isPaymentReceived: isPaymentReceived,
-  typeOfIsPaymentReceived: typeof isPaymentReceived
-});
+    // Debug what we're receiving
+    console.log("🔍 Payment Debug - Received:", {
+      paymentGateway: paymentGateway,
+      isPaymentReceived: isPaymentReceived,
+      typeOfIsPaymentReceived: typeof isPaymentReceived
+    });
 
-if (paymentGateway) {
-  const ticketPrice = price ? Number(price) : 0;
-  
-  // Handle different possible values for isPaymentReceived
-  let paymentReceivedStatus = false;
-  
-  if (isPaymentReceived === true) {
-    paymentReceivedStatus = true;
-  } else if (isPaymentReceived === "true") {
-    paymentReceivedStatus = true;
-  } else if (isPaymentReceived === 1) {
-    paymentReceivedStatus = true;
-  } else if (isPaymentReceived === "1") {
-    paymentReceivedStatus = true;
-  }
-  // All other cases remain false
-  
-  console.log(`💰 Final Payment Status: ${paymentReceivedStatus ? 'RECEIVED' : 'NOT RECEIVED'}`);
-  
-  paymentDetails = {
-    paymentGateway: paymentGateway,
-    originalAmount: ticketPrice,
-    amountPaid: paymentReceivedStatus ? ticketPrice : 0,
-    razorpay_payment_id: null,
-    razorpay_order_id: null,
-    razorpay_signature: null,
-    isPaymentReceived: paymentReceivedStatus,
-  };
-} else {
-  console.log("💳 No payment gateway - creating unpaid ticket");
-}
+    if (paymentGateway) {
+      const ticketPrice = price ? Number(price) : 0;
+
+      // Handle different possible values for isPaymentReceived
+      let paymentReceivedStatus = false;
+
+      if (isPaymentReceived === true) {
+        paymentReceivedStatus = true;
+      } else if (isPaymentReceived === "true") {
+        paymentReceivedStatus = true;
+      } else if (isPaymentReceived === 1) {
+        paymentReceivedStatus = true;
+      } else if (isPaymentReceived === "1") {
+        paymentReceivedStatus = true;
+      }
+      // All other cases remain false
+
+      console.log(`💰 Final Payment Status: ${paymentReceivedStatus ? 'RECEIVED' : 'NOT RECEIVED'}`);
+
+      paymentDetails = {
+        paymentGateway: paymentGateway,
+        originalAmount: ticketPrice,
+        amountPaid: paymentReceivedStatus ? ticketPrice : 0,
+        razorpay_payment_id: null,
+        razorpay_order_id: null,
+        razorpay_signature: null,
+        isPaymentReceived: paymentReceivedStatus,
+      };
+    } else {
+      console.log("💳 No payment gateway - creating unpaid ticket");
+    }
 
     // Create the ticket object
     const newTicket = new Ticket({
@@ -4181,6 +4181,103 @@ const getAllTickets = async (req, res) => {
       // .sort({ [selectedDateField]: -1 })
       .skip(skip)
       .limit(limit);
+
+
+
+    // const tickets = await Ticket.aggregate([
+    //   { $match: query },
+    //   { $sort: sortCriteria },
+    //   { $skip: skip },
+    //   { $limit: limit },
+
+    //   {
+    //     $lookup: {
+    //       from: "maindatas",
+    //       let: { regNos: "$vehicleNumbers.vehicleNumber" },
+    //       pipeline: [
+    //         { $match: { $expr: { $in: ["$registrationNumber", "$$regNos"] } } },
+
+    //         // ✅ Sim populate + remove statusHistory
+    //         {
+    //           $lookup: {
+    //             from: "simmasters",
+    //             localField: "simDetails",
+    //             foreignField: "_id",
+    //             as: "simDetails",
+    //             pipeline: [
+    //               { $project: { statusHistory: 0, __v: 0 } } // ✅ HERE
+    //             ],
+    //           },
+    //         },
+    //         { $unwind: { path: "$simDetails", preserveNullAndEmptyArrays: true } },
+
+    //         // ✅ Device populate + remove statusHistory
+    //         {
+    //           $lookup: {
+    //             from: "devicemasters",
+    //             localField: "deviceDetails",
+    //             foreignField: "_id",
+    //             as: "deviceDetails",
+    //             pipeline: [
+    //               { $project: { statusHistory: 0, __v: 0 } } // ✅ HERE
+    //             ],
+    //           },
+    //         },
+    //         { $unwind: { path: "$deviceDetails", preserveNullAndEmptyArrays: true } },
+
+    //         // ✅ Accessories populate + remove statusHistory
+    //         {
+    //           $lookup: {
+    //             from: "accessorymasters",
+    //             localField: "accessoryDetails",
+    //             foreignField: "_id",
+    //             as: "accessoryDetails",
+    //             pipeline: [
+    //               { $project: { statusHistory: 0, __v: 0 } } // ✅ HERE
+    //             ],
+    //           },
+    //         },
+
+    //         // (optional) also remove statusHistory from MainData if it ever exists there
+    //         { $project: { __v: 0 } },
+    //       ],
+    //       as: "attachedMainData",
+    //     },
+    //   },
+
+    //   // ✅ merge into vehicleNumbers
+    //   {
+    //     $addFields: {
+    //       vehicleNumbers: {
+    //         $map: {
+    //           input: "$vehicleNumbers",
+    //           as: "v",
+    //           in: {
+    //             $mergeObjects: [
+    //               "$$v",
+    //               {
+    //                 mainData: {
+    //                   $first: {
+    //                     $filter: {
+    //                       input: "$attachedMainData",
+    //                       as: "m",
+    //                       cond: { $eq: ["$$m.registrationNumber", "$$v.vehicleNumber"] },
+    //                     },
+    //                   },
+    //                 },
+    //               },
+    //             ],
+    //           },
+    //         },
+    //       },
+    //     },
+    //   },
+
+    //   // optional: remove attachedMainData since you already merged it
+    //   { $project: { attachedMainData: 0 } },
+    // ]);
+
+
 
     let statsss = {
       open: openCount,
@@ -6046,8 +6143,8 @@ const updateTicket = async (req, res) => {
           updatedTicket.technician,
           securityCode
         );
-        
-      console.log("SENDING MAIL TO TECHNICIAN:", updatedTicket?.technician.email);
+
+        console.log("SENDING MAIL TO TECHNICIAN:", updatedTicket?.technician.email);
         await sendEmail({
           to: updatedTicket?.technician.email,
           // to: 'emailmdowais483@gmail.com',
