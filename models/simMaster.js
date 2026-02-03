@@ -11,12 +11,13 @@ const statusHistorySchema = new mongoose.Schema(
         "testing",
         "with technician",
         "with cse",
+        "foc",
       ],
     },
     changedAt: { type: Date, default: Date.now },
     changedBy: { type: String },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const simMasterSchema = new mongoose.Schema(
@@ -53,6 +54,7 @@ const simMasterSchema = new mongoose.Schema(
         "testing",
         "with technician",
         "with cse",
+        "foc",
       ],
       default: "stock",
     },
@@ -75,7 +77,7 @@ const simMasterSchema = new mongoose.Schema(
 
     statusHistory: [statusHistorySchema],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const SimMaster = mongoose.model("SimMaster", simMasterSchema);

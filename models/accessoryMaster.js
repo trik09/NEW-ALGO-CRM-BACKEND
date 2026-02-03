@@ -4,12 +4,20 @@ const statusHistorySchema = new mongoose.Schema(
   {
     status: {
       type: String,
-      enum: ["stock", "sold to customer", "customer demo", "testing", "with technician", "with cse"],
+      enum: [
+        "stock",
+        "sold to customer",
+        "customer demo",
+        "testing",
+        "with technician",
+        "with cse",
+        "foc",
+      ],
     },
     changedAt: { type: Date, default: Date.now },
     changedBy: { type: String },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const accessoryMasterSchema = new mongoose.Schema(
@@ -48,7 +56,15 @@ const accessoryMasterSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["stock", "sold to customer", "customer demo", "testing", "with technician", "with cse"],
+      enum: [
+        "stock",
+        "sold to customer",
+        "customer demo",
+        "testing",
+        "with technician",
+        "with cse",
+        "foc",
+      ],
       default: "stock",
     },
 
@@ -72,8 +88,11 @@ const accessoryMasterSchema = new mongoose.Schema(
     stockEnteredAt: { type: Date },
     statusHistory: [statusHistorySchema],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-const AccessoryMaster = mongoose.model("AccessoryMaster", accessoryMasterSchema);
+const AccessoryMaster = mongoose.model(
+  "AccessoryMaster",
+  accessoryMasterSchema,
+);
 module.exports = AccessoryMaster;

@@ -1,4 +1,5 @@
 const QstClient = require("../models/qstClient.model");
+const Zone = require("../models/zone.model");
 const Employee = require("../models/employee.model");
 const Project = require("../models/project.model");
 const mongoose = require("mongoose");
@@ -153,7 +154,12 @@ exports.createSingleQSTClient = async (req, res) => {
       startDate,
       billingCategory,
       endDate,
+      cse,
+      zone,
     } = req.body;
+
+    console.log(zone);
+    console.log(cse);
 
     if (!companyShortName || !contacts || contacts.length === 0) {
       await session.abortTransaction();
@@ -208,6 +214,30 @@ exports.createSingleQSTClient = async (req, res) => {
       }
     }
 
+    if (cse) {
+      const existingCse = await Employee.findById(cse).session(session);
+      if (!existingCse) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          message: "CSE not found",
+        });
+      }
+    }
+
+    if (zone) {
+      const existingZone = await Zone.findById(zone).session(session);
+      if (!existingZone) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          message: "Zone not found",
+        });
+      }
+    }
+
     const existingClient = await QstClient.findOne({
       companyName: companyName.trim(),
     }).session(session);
@@ -229,6 +259,8 @@ exports.createSingleQSTClient = async (req, res) => {
       billingCategory,
       keyClient,
       qstClientCreator: req?.user?._id || req.body.employeeId,
+      cse,
+      zone,
     });
 
     const savedClient = await newClient.save({ session });
@@ -260,7 +292,7 @@ exports.createSingleQSTClient = async (req, res) => {
         savedEmployee.name,
         savedEmployee.email,
         tempPassword,
-        `${process.env.CLIENT_BASE_URL}/login`
+        `${process.env.CLIENT_BASE_URL}/login`,
       );
       try {
         await sendEmail({
@@ -272,14 +304,14 @@ exports.createSingleQSTClient = async (req, res) => {
       } catch (err) {
         console.error(
           `Email sending failed to ${savedEmployee.email}:`,
-          err.message
+          err.message,
         );
       }
     }
 
     // Save employee references to client
     savedClient.contactEmployeeIds = createdEmployees.map(
-      (item) => item.employee._id
+      (item) => item.employee._id,
     );
     await savedClient.save({ session });
 
@@ -316,6 +348,8 @@ exports.createSingleQSTClient = async (req, res) => {
         keyClient: savedClient.keyClient,
         billingCategory: savedClient.billingCategory,
         billingAddress: savedClient.billingAddress,
+        cse: savedClient.cse,
+        zone: savedClient.zone,
       },
       contacts: createdEmployees.map((item) => ({
         _id: item.employee._id,
@@ -538,6 +572,8 @@ exports.getAlltheQstClientForShowInTable = async (req, res) => {
           path: "contactEmployeeIds",
           select: "name email phoneNumber",
         })
+        .populate({ path: "cse", select: "name" })
+        .populate({ path: "zone", select: "zone" })
         .sort({ createdAt: -1 })
         .skip(adjustedSkip)
         .limit(limit);
@@ -567,6 +603,8 @@ exports.getAlltheQstClientForShowInTable = async (req, res) => {
         path: "contactEmployeeIds",
         select: "name email phoneNumber",
       })
+      .populate({ path: "cse", select: "name" })
+      .populate({ path: "zone", select: "zone" })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -609,6 +647,8 @@ exports.getAllQstClients = async (req, res) => {
         path: "contactEmployeeIds",
         select: "name email phoneNumber",
       })
+      .populate({ path: "cse", select: "name" })
+      .populate({ path: "zone", select: "zone" })
       .sort({ createdAt: -1, companyShortName: 1 });
 
     // Sort by createdAt descending
@@ -674,7 +714,7 @@ exports.deleteQSTClientById = async (req, res) => {
 
     // 3. Check for projects with open tickets
     const projects = await Project.find({ qstClient: clientId }).session(
-      session
+      session,
     );
     for (const project of projects) {
       const projectOpenTicket = await Ticket.findOne({
@@ -825,6 +865,8 @@ exports.exportQstClients = async (req, res) => {
         path: "contactEmployeeIds",
         select: "name email phoneNumber",
       })
+      .populate({ path: "cse", select: "name" })
+      .populate({ path: "zone", select: "zone" })
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -1085,6 +1127,8 @@ exports.updateSingleQSTClient = async (req, res) => {
       keyClient,
       contacts,
       employeeId,
+      zone,
+      cse,
     } = req.body;
 
     if (!companyName || !companyShortName) {
@@ -1165,6 +1209,8 @@ exports.updateSingleQSTClient = async (req, res) => {
     client.keyClient = keyClient;
     client.billingCategory = billingCategory;
     client.qstClientCreator = employeeId || client.qstClientCreator;
+    client.zone = zone;
+    client.cse = cse;
 
     // Handle contacts if provided
     // if (contacts && contacts.length > 0) {
@@ -1330,7 +1376,7 @@ exports.updateSingleQSTClient = async (req, res) => {
       for (const employee of contactsToRemove) {
         // Remove employee reference from client
         client.contactEmployeeIds = client.contactEmployeeIds.filter(
-          (id) => id.toString() !== employee._id.toString()
+          (id) => id.toString() !== employee._id.toString(),
         );
 
         // Mark as inactive instead of deleting (recommended)
@@ -1373,7 +1419,7 @@ exports.updateSingleQSTClient = async (req, res) => {
           savedEmployee.name,
           savedEmployee.email,
           tempPassword,
-          `${process.env.CLIENT_BASE_URL}/login`
+          `${process.env.CLIENT_BASE_URL}/login`,
         );
 
         try {
@@ -1386,7 +1432,7 @@ exports.updateSingleQSTClient = async (req, res) => {
         } catch (err) {
           console.error(
             `Email sending failed to ${savedEmployee.email}:`,
-            err.message
+            err.message,
           );
         }
       }
@@ -1579,7 +1625,7 @@ exports.updateMainData = async (req, res) => {
     const updatedData = await MainDataModel.findByIdAndUpdate(
       id,
       { $set: updateFields },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedData) {

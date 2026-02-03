@@ -33,7 +33,7 @@ const employeeSchema = new mongoose.Schema({
 
   role: {
     type: String,
-    enum: ['cse', 'admin', 'superAdmin','qstClient','store'],
+    enum: ['cse', 'admin', 'superAdmin','qstClient','store','r&d','technician'],
     default: 'cse',
   },
   resetPasswordToken: {

@@ -81,8 +81,7 @@ const { isDemoExpiringSoon } = require("../utils/demoPeriodChecker");
 //   }
 // };
 
-
-// stock counting code 
+// stock counting code
 // exports.updateDeviceMasters = async (req, res) => {
 //   try {
 //     const { id } = req.params;
@@ -125,9 +124,7 @@ const { isDemoExpiringSoon } = require("../utils/demoPeriodChecker");
 //   }
 // };
 
-
-// stock counting code 
-
+// stock counting code
 
 // exports.getAllDeviceMasters = async (req, res) => {
 //   try {
@@ -218,7 +215,6 @@ const { isDemoExpiringSoon } = require("../utils/demoPeriodChecker");
 //     // auto warrantyStatus based on invoiceDate + warrantyPeriod
 //     const autoWarranty = computeWarrantyStatus(data.invoiceDate, data.warrantyPeriod);
 //     if (autoWarranty) data.warrantyStatus = autoWarranty;
-
 
 //     // status will default to "stock" if not provided
 //     const finalStatus = data.status || "stock";
@@ -319,7 +315,6 @@ const { isDemoExpiringSoon } = require("../utils/demoPeriodChecker");
 //     });
 //   }
 // };
-
 
 // below controller contains all functionalities
 
@@ -576,7 +571,6 @@ const { isDemoExpiringSoon } = require("../utils/demoPeriodChecker");
 //   }
 // };
 
-
 // this below controller is containing all changes with functionalities
 
 // exports.updateDeviceMasters = async (req, res) => {
@@ -703,7 +697,12 @@ function pushStatusHistory(doc, status, changedBy) {
 function getAssignedToModelFromStatus(status) {
   if (status === "with technician") return "Technician";
   if (status === "with cse") return "Employee"; // CSE are employees
-  if (status === "sold to customer" || status === "customer demo") return "QstClient";
+  if (
+    status === "sold to customer" ||
+    status === "customer demo" ||
+    status === "foc"
+  )
+    return "QstClient";
   return null;
 }
 
@@ -712,16 +711,20 @@ exports.updateDeviceMasters = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid device master ID" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid device master ID" });
     }
 
     const device = await DeviceMasterModel.findById(id);
     if (!device) {
-      return res.status(404).json({ success: false, message: "Device Master not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Device Master not found" });
     }
 
     const updates = Object.fromEntries(
-      Object.entries(req.body).filter(([_, value]) => value !== undefined)
+      Object.entries(req.body).filter(([_, value]) => value !== undefined),
     );
 
     // ✅ never accept warrantyStatus from frontend
@@ -738,7 +741,13 @@ exports.updateDeviceMasters = async (req, res) => {
 
     // ✅ if status changed, enforce assignedToModel rules
     if (incomingStatus) {
-      const needsAssignedTo = ["with technician", "with cse", "sold to customer", "customer demo"].includes(incomingStatus);
+      const needsAssignedTo = [
+        "with technician",
+        "with cse",
+        "sold to customer",
+        "customer demo",
+        "foc",
+      ].includes(incomingStatus);
 
       if (!needsAssignedTo) {
         device.assignedTo = null;
@@ -760,7 +769,8 @@ exports.updateDeviceMasters = async (req, res) => {
         if (!device.demoFromDate || !device.demoToDate) {
           return res.status(400).json({
             success: false,
-            message: "demoFromDate and demoToDate are required for customer demo",
+            message:
+              "demoFromDate and demoToDate are required for customer demo",
           });
         }
 
@@ -786,13 +796,20 @@ exports.updateDeviceMasters = async (req, res) => {
     }
 
     // ✅ auto warranty calc (any time invoiceDate/warrantyPeriod changes too)
-    const autoWarranty = computeWarrantyStatus(device.invoiceDate, device.warrantyPeriod);
+    const autoWarranty = computeWarrantyStatus(
+      device.invoiceDate,
+      device.warrantyPeriod,
+    );
     if (autoWarranty) device.warrantyStatus = autoWarranty;
 
     // ✅ status change + history
     if (incomingStatus && incomingStatus !== prevStatus) {
       device.status = incomingStatus;
-      pushStatusHistory(device, incomingStatus, req.user?.name || req.user?.email);
+      pushStatusHistory(
+        device,
+        incomingStatus,
+        req.user?.name || req.user?.email,
+      );
 
       if (incomingStatus === "stock") {
         device.stockEnteredAt = new Date();
@@ -811,7 +828,6 @@ exports.updateDeviceMasters = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 exports.getAllDeviceMasters = async (req, res) => {
   try {
@@ -837,7 +853,9 @@ exports.getAllDeviceMasters = async (req, res) => {
 
     const sortField = sortBy || "createdAt";
     const sortDir =
-      String(sortOrder).toLowerCase() === "asc" || sortOrder === 1 || sortOrder === "1"
+      String(sortOrder).toLowerCase() === "asc" ||
+      sortOrder === 1 ||
+      sortOrder === "1"
         ? 1
         : -1;
 
@@ -884,7 +902,14 @@ exports.getAllDeviceMasters = async (req, res) => {
         demoAlert = isDemoExpiringSoon(d.demoToDate, 2);
       }
 
-      return { ...d, assignedToName, daysInStock, demoDaysLeft, demoAlert, demoExpired };
+      return {
+        ...d,
+        assignedToName,
+        daysInStock,
+        demoDaysLeft,
+        demoAlert,
+        demoExpired,
+      };
     });
 
     const totalPages = Math.ceil(totalCount / limit);
@@ -903,7 +928,6 @@ exports.getAllDeviceMasters = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 exports.createDeviceMasters = async (req, res) => {
   try {
@@ -926,7 +950,13 @@ exports.createDeviceMasters = async (req, res) => {
     }
 
     // ✅ if status needs assignedTo, validate
-    const needsAssignedTo = ["with technician", "with cse", "sold to customer", "customer demo"].includes(finalStatus);
+    const needsAssignedTo = [
+      "with technician",
+      "with cse",
+      "sold to customer",
+      "customer demo",
+      "foc",
+    ].includes(finalStatus);
     if (needsAssignedTo && !data.assignedTo) {
       return res.status(400).json({
         success: false,
@@ -939,7 +969,8 @@ exports.createDeviceMasters = async (req, res) => {
       if (!data.demoFromDate || !data.demoToDate) {
         return res.status(400).json({
           success: false,
-          message: "demoFromDate and demoToDate are required when status is customer demo",
+          message:
+            "demoFromDate and demoToDate are required when status is customer demo",
         });
       }
 
@@ -965,7 +996,10 @@ exports.createDeviceMasters = async (req, res) => {
     }
 
     // ✅ auto warranty calc
-    const autoWarranty = computeWarrantyStatus(data.invoiceDate, data.warrantyPeriod);
+    const autoWarranty = computeWarrantyStatus(
+      data.invoiceDate,
+      data.warrantyPeriod,
+    );
     if (autoWarranty) data.warrantyStatus = autoWarranty;
 
     const device = new DeviceMasterModel({
@@ -994,8 +1028,6 @@ exports.createDeviceMasters = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
 
 exports.bulkCreateDeviceMasters = async (req, res) => {
   try {
@@ -1028,7 +1060,7 @@ exports.bulkCreateDeviceMasters = async (req, res) => {
       {
         deviceId: { $in: allDeviceIds },
       },
-      "deviceId"
+      "deviceId",
     );
 
     const existingDeviceIds = new Set(existingDevices.map((d) => d.deviceId));

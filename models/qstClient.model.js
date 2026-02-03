@@ -33,6 +33,15 @@ const clientSchema = new mongoose.Schema(
       },
     ],
 
+    cse: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee",
+    },
+    zone:{
+      type:mongoose.Schema.Types.ObjectId,
+      ref:"Zone"
+    },
+
     // Here we store employeeId by creating employee on contact details of astClient.
     contactEmployeeIds: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },

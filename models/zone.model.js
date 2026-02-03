@@ -8,7 +8,7 @@ const zoneSchema = new mongoose.Schema({
     },
     city: {
         type: String,
-        required: true
+        required: false
     }
 }, {
     timestamps: true

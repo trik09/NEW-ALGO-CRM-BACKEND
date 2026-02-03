@@ -18,6 +18,13 @@ router.get(
   employeeController.getAllEmployee_Without_qstClient_contacts_user
 );
 
+// Get All CSE
+router.get(
+  "/get-all-cse",
+  isAuthenticated,
+  employeeController.getAllCSE
+);
+
 // it is used for  only company employee data (Not super Admin and other like qstClient)
 router.get(
   "/get-all-employee-except-superadmin",

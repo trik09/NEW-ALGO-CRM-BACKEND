@@ -1,13 +1,21 @@
 const mongoose = require("mongoose");
 const simMasterModel = require("../models/simMaster");
-const { pushStatusHistory, isDemoExpiringSoon } = require("../utils/helperForSimMaster");
+const {
+  pushStatusHistory,
+  isDemoExpiringSoon,
+} = require("../utils/helperForSimMaster");
 
 function getAssignedToModelFromStatus(status) {
   if (status === "with technician") return "Technician";
   if (status === "with cse") return "Employee";
-  if (status === "sold to customer" || status === "customer demo") return "QstClient";
+  if (
+    status === "sold to customer" ||
+    status === "customer demo" ||
+    status === "foc"
+  )
+    return "QstClient";
   return null;
-} 
+}
 
 function normalizeDateInputToISODateString(val) {
   if (!val) return "";
@@ -18,7 +26,8 @@ function normalizeDateInputToISODateString(val) {
   // handle "DD/MM/YYYY"
   if (typeof val === "string" && val.includes("/")) {
     const [dd, mm, yyyy] = val.split("/");
-    if (dd && mm && yyyy) return `${yyyy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+    if (dd && mm && yyyy)
+      return `${yyyy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
   }
 
   // handle date object / other string
@@ -34,7 +43,7 @@ function applyActivationAuto(simDocOrData) {
   // if activationDate exists => isSimActivated must be true
   const act = normalizeDateInputToISODateString(simDocOrData.activationDate);
   if (act) {
-    simDocOrData.activationDate = act;     // store as "YYYY-MM-DD"
+    simDocOrData.activationDate = act; // store as "YYYY-MM-DD"
     simDocOrData.isSimActivated = true;
   } else {
     // if no activationDate and isSimActivated false => clear activationDate
@@ -50,15 +59,22 @@ exports.createSimMaster = async (req, res) => {
 
     // ✅ clean empties
     if (data.status === "" || data.status === null) delete data.status;
-    if (data.assignedTo === "" || data.assignedTo === null) delete data.assignedTo;
-    if (data.assignedToName === "" || data.assignedToName === null) delete data.assignedToName;
-    if (data.assignedToModel === "" || data.assignedToModel === null) delete data.assignedToModel;
+    if (data.assignedTo === "" || data.assignedTo === null)
+      delete data.assignedTo;
+    if (data.assignedToName === "" || data.assignedToName === null)
+      delete data.assignedToName;
+    if (data.assignedToModel === "" || data.assignedToModel === null)
+      delete data.assignedToModel;
 
     // ✅ unique simNumber check
     if (data.simNumber !== undefined) {
-      const existingSim = await simMasterModel.findOne({ simNumber: data.simNumber });
+      const existingSim = await simMasterModel.findOne({
+        simNumber: data.simNumber,
+      });
       if (existingSim) {
-        return res.status(400).json({ success: false, message: "SIM number already exists" });
+        return res
+          .status(400)
+          .json({ success: false, message: "SIM number already exists" });
       }
     }
 
@@ -79,7 +95,10 @@ exports.createSimMaster = async (req, res) => {
     if (data.activationDate !== undefined) {
       if (!data.activationDate) {
         data.activationDate = "";
-      } else if (typeof data.activationDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.activationDate)) {
+      } else if (
+        typeof data.activationDate === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(data.activationDate)
+      ) {
         // ok
       } else {
         const d = new Date(data.activationDate);
@@ -100,7 +119,13 @@ exports.createSimMaster = async (req, res) => {
     const finalStatus = data.status || "stock";
 
     // ✅ assignment validation based on status
-    const needsAssignedTo = ["with technician", "with cse", "sold to customer", "customer demo"].includes(finalStatus);
+    const needsAssignedTo = [
+      "with technician",
+      "with cse",
+      "sold to customer",
+      "customer demo",
+      "foc",
+    ].includes(finalStatus);
 
     if (!needsAssignedTo) {
       data.assignedTo = null;
@@ -111,7 +136,12 @@ exports.createSimMaster = async (req, res) => {
       let requiredModel = null;
       if (finalStatus === "with technician") requiredModel = "Technician";
       if (finalStatus === "with cse") requiredModel = "Employee";
-      if (finalStatus === "sold to customer" || finalStatus === "customer demo") requiredModel = "QstClient";
+      if (
+        finalStatus === "sold to customer" ||
+        finalStatus === "customer demo" ||
+        finalStatus === "foc"
+      )
+        requiredModel = "QstClient";
 
       data.assignedToModel = requiredModel;
 
@@ -119,14 +149,16 @@ exports.createSimMaster = async (req, res) => {
       if (!data.assignedTo) {
         return res.status(400).json({
           success: false,
-          message: "Customer/Technician/CSE is required for this status (assignedTo missing)",
+          message:
+            "Customer/Technician/CSE is required for this status (assignedTo missing)",
         });
       }
 
       if (!data.assignedToName || !String(data.assignedToName).trim()) {
         return res.status(400).json({
           success: false,
-          message: "Customer/Technician/CSE name is required for this status (assignedToName missing)",
+          message:
+            "Customer/Technician/CSE name is required for this status (assignedToName missing)",
         });
       }
     }
@@ -136,7 +168,8 @@ exports.createSimMaster = async (req, res) => {
       if (!data.demoFromDate || !data.demoToDate) {
         return res.status(400).json({
           success: false,
-          message: "demoFromDate and demoToDate are required when status is customer demo",
+          message:
+            "demoFromDate and demoToDate are required when status is customer demo",
         });
       }
 
@@ -144,10 +177,20 @@ exports.createSimMaster = async (req, res) => {
       const to = new Date(data.demoToDate);
 
       if (isNaN(from.getTime()) || isNaN(to.getTime())) {
-        return res.status(400).json({ success: false, message: "Invalid demoFromDate or demoToDate" });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Invalid demoFromDate or demoToDate",
+          });
       }
       if (to < from) {
-        return res.status(400).json({ success: false, message: "demoToDate cannot be earlier than demoFromDate" });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "demoToDate cannot be earlier than demoFromDate",
+          });
       }
 
       data.demoFromDate = from;
@@ -188,18 +231,24 @@ exports.updateSimMaster = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid sim master ID" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid sim master ID" });
     }
 
     const sim = await simMasterModel.findById(id);
     if (!sim) {
-      return res.status(404).json({ success: false, message: "Sim Master not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Sim Master not found" });
     }
 
     const prevStatus = sim.status;
 
     // ✅ keep keys even if "" so we can detect touched fields
-    const updates = Object.fromEntries(Object.entries(req.body).filter(([_, v]) => v !== undefined));
+    const updates = Object.fromEntries(
+      Object.entries(req.body).filter(([_, v]) => v !== undefined),
+    );
 
     // ✅ monthlyDate mapping
     if (updates.monthlyDate !== undefined) {
@@ -218,7 +267,10 @@ exports.updateSimMaster = async (req, res) => {
     if (updates.activationDate !== undefined) {
       if (!updates.activationDate) {
         updates.activationDate = "";
-      } else if (typeof updates.activationDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(updates.activationDate)) {
+      } else if (
+        typeof updates.activationDate === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(updates.activationDate)
+      ) {
         // ok
       } else {
         const d = new Date(updates.activationDate);
@@ -239,8 +291,14 @@ exports.updateSimMaster = async (req, res) => {
     const incomingStatus = updates.status;
 
     // ✅ detect if frontend actually sent assignment fields
-    const assignedToTouched = Object.prototype.hasOwnProperty.call(req.body, "assignedTo");
-    const assignedToNameTouched = Object.prototype.hasOwnProperty.call(req.body, "assignedToName");
+    const assignedToTouched = Object.prototype.hasOwnProperty.call(
+      req.body,
+      "assignedTo",
+    );
+    const assignedToNameTouched = Object.prototype.hasOwnProperty.call(
+      req.body,
+      "assignedToName",
+    );
 
     // don't assign status before validation
     delete updates.status;
@@ -253,7 +311,13 @@ exports.updateSimMaster = async (req, res) => {
 
     if (incomingStatus) {
       const statusChanging = incomingStatus !== prevStatus;
-      const needsAssignedTo = ["with technician", "with cse", "sold to customer", "customer demo"].includes(incomingStatus);
+      const needsAssignedTo = [
+        "with technician",
+        "with cse",
+        "sold to customer",
+        "customer demo",
+        "foc",
+      ].includes(incomingStatus);
 
       // ✅ if status is changing to a "needsAssignedTo" status,
       // require user to send assignment again (prevents old carry-over)
@@ -261,13 +325,19 @@ exports.updateSimMaster = async (req, res) => {
         if (!assignedToTouched || !req.body.assignedTo) {
           return res.status(400).json({
             success: false,
-            message: "Customer/Technician/CSE is required for this status (assignedTo missing)",
+            message:
+              "Customer/Technician/CSE is required for this status (assignedTo missing)",
           });
         }
-        if (!assignedToNameTouched || !req.body.assignedToName || !String(req.body.assignedToName).trim()) {
+        if (
+          !assignedToNameTouched ||
+          !req.body.assignedToName ||
+          !String(req.body.assignedToName).trim()
+        ) {
           return res.status(400).json({
             success: false,
-            message: "Customer/Technician/CSE name is required for this status (assignedToName missing)",
+            message:
+              "Customer/Technician/CSE name is required for this status (assignedToName missing)",
           });
         }
       }
@@ -283,7 +353,12 @@ exports.updateSimMaster = async (req, res) => {
         let requiredModel = null;
         if (incomingStatus === "with technician") requiredModel = "Technician";
         if (incomingStatus === "with cse") requiredModel = "Employee";
-        if (incomingStatus === "sold to customer" || incomingStatus === "customer demo") requiredModel = "QstClient";
+        if (
+          incomingStatus === "sold to customer" ||
+          incomingStatus === "customer demo" ||
+          incomingStatus === "foc"
+        )
+          requiredModel = "QstClient";
 
         sim.assignedToModel = requiredModel;
 
@@ -291,13 +366,15 @@ exports.updateSimMaster = async (req, res) => {
         if (!sim.assignedTo) {
           return res.status(400).json({
             success: false,
-            message: "Customer/Technician/CSE is required for this status (assignedTo missing)",
+            message:
+              "Customer/Technician/CSE is required for this status (assignedTo missing)",
           });
         }
         if (!sim.assignedToName || !String(sim.assignedToName).trim()) {
           return res.status(400).json({
             success: false,
-            message: "Customer/Technician/CSE name is required for this status (assignedToName missing)",
+            message:
+              "Customer/Technician/CSE name is required for this status (assignedToName missing)",
           });
         }
       }
@@ -307,7 +384,8 @@ exports.updateSimMaster = async (req, res) => {
         if (!sim.demoFromDate || !sim.demoToDate) {
           return res.status(400).json({
             success: false,
-            message: "demoFromDate and demoToDate are required for customer demo",
+            message:
+              "demoFromDate and demoToDate are required for customer demo",
           });
         }
 
@@ -315,10 +393,20 @@ exports.updateSimMaster = async (req, res) => {
         const to = new Date(sim.demoToDate);
 
         if (isNaN(from.getTime()) || isNaN(to.getTime())) {
-          return res.status(400).json({ success: false, message: "Invalid demoFromDate or demoToDate" });
+          return res
+            .status(400)
+            .json({
+              success: false,
+              message: "Invalid demoFromDate or demoToDate",
+            });
         }
         if (to < from) {
-          return res.status(400).json({ success: false, message: "demoToDate cannot be earlier than demoFromDate" });
+          return res
+            .status(400)
+            .json({
+              success: false,
+              message: "demoToDate cannot be earlier than demoFromDate",
+            });
         }
 
         sim.demoFromDate = from;
@@ -356,7 +444,6 @@ exports.updateSimMaster = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 exports.getAllSimMasters = async (req, res) => {
   try {
@@ -402,7 +489,9 @@ exports.getAllSimMasters = async (req, res) => {
       if (s.status === "stock") {
         const start = s.stockEnteredAt || s.createdAt;
         if (start) {
-          daysInStock = Math.floor((Date.now() - new Date(start).getTime()) / MS_PER_DAY);
+          daysInStock = Math.floor(
+            (Date.now() - new Date(start).getTime()) / MS_PER_DAY,
+          );
           if (daysInStock < 0) daysInStock = 0;
         } else daysInStock = 0;
       }
@@ -448,7 +537,6 @@ exports.getAllSimMasters = async (req, res) => {
   }
 };
 
-
 exports.deleteSimMaster = async (req, res) => {
   try {
     const { id } = req.params;
@@ -481,7 +569,6 @@ exports.deleteSimMaster = async (req, res) => {
     });
   }
 };
-
 
 exports.bulkCreateSimMasters = async (req, res) => {
   try {
@@ -528,7 +615,7 @@ exports.bulkCreateSimMasters = async (req, res) => {
           { mobileNumber: { $in: allMobileNumbers } },
         ],
       },
-      "simNumber mobileNumber"
+      "simNumber mobileNumber",
     );
 
     const existingSimNums = new Set(existingSims.map((s) => s.simNumber));

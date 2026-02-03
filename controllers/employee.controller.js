@@ -427,7 +427,7 @@ exports.createEmployeeBySuperAdmin = async (req, res) => {
 
 
     // Role validation
-    const validRoles = ["cse", "admin", "store"];
+    const validRoles = ["cse", "admin", "store","r&d","technician"];
     if (!validRoles.includes(role)) {
       return res.status(400).json({
         success: false,
@@ -827,3 +827,24 @@ exports.exportEmployeesWithoutQstContactEmployee = async (req, res) => {
     });
   }
 };
+
+exports.getAllCSE = async (req, res) => {
+  try {
+    const cseEmployees = await Employee.find({ role: "cse" }).select("-password -resetPasswordToken");
+
+    res.status(200).json({
+      success: true,
+      count: cseEmployees.length,
+      message: "CSE employees fetched successfully",
+      data: cseEmployees,
+    });
+  } catch (error) {
+    console.error("Error fetching CSE employees:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+

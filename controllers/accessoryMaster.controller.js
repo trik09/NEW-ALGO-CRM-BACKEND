@@ -104,7 +104,6 @@ const { isDemoExpiringSoon } = require("../utils/demoPeriodChecker");
 //   }
 // };
 
-
 // exports.getAllAccessoryMasters = async (req, res) => {
 //   try {
 //     const page = parseInt(req.query.page, 10) || 1;
@@ -259,7 +258,6 @@ const { isDemoExpiringSoon } = require("../utils/demoPeriodChecker");
 //   }
 // };
 
-
 exports.getAllAccessoryMasters = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
@@ -306,9 +304,7 @@ exports.getAllAccessoryMasters = async (req, res) => {
     const accessoryMasters = accessoryMastersRaw.map((a) => {
       // ✅ assign name (works for any model)
       const assignedToName =
-        a?.assignedTo?.companyName ||
-        a?.assignedTo?.name ||
-        null;
+        a?.assignedTo?.companyName || a?.assignedTo?.name || null;
 
       // stock days
       let daysInStock = null;
@@ -361,7 +357,6 @@ exports.getAllAccessoryMasters = async (req, res) => {
   }
 };
 
-
 exports.createAccessoryMasters = async (req, res) => {
   try {
     const data = { ...req.body };
@@ -378,13 +373,17 @@ exports.createAccessoryMasters = async (req, res) => {
       "with cse": "Employee",
       "sold to customer": "QstClient",
       "customer demo": "QstClient",
+      foc: "QstClient",
     };
 
     // ✅ If status requires owner, validate assignedTo and set assignedToModel automatically
     const requiredModel = STATUS_OWNER_RULES[finalStatus];
 
     if (requiredModel) {
-      if (!data.assignedTo || !mongoose.Types.ObjectId.isValid(data.assignedTo)) {
+      if (
+        !data.assignedTo ||
+        !mongoose.Types.ObjectId.isValid(data.assignedTo)
+      ) {
         return res.status(400).json({
           success: false,
           message: `assignedTo is required and must be a valid ObjectId when status is "${finalStatus}"`,
@@ -401,7 +400,8 @@ exports.createAccessoryMasters = async (req, res) => {
       if (!data.demoFromDate || !data.demoToDate) {
         return res.status(400).json({
           success: false,
-          message: "demoFromDate and demoToDate are required when status is customer demo",
+          message:
+            "demoFromDate and demoToDate are required when status is customer demo",
         });
       }
 
@@ -427,7 +427,10 @@ exports.createAccessoryMasters = async (req, res) => {
     }
 
     // ✅ ALWAYS auto-calc warranty
-    const autoWarranty = computeWarrantyStatus(data.invoiceDate, data.warrantyPeriod);
+    const autoWarranty = computeWarrantyStatus(
+      data.invoiceDate,
+      data.warrantyPeriod,
+    );
     if (autoWarranty) data.warnatyStatus = autoWarranty;
 
     const accessoryMaster = new accessoryMasterModel({
@@ -456,7 +459,6 @@ exports.createAccessoryMasters = async (req, res) => {
   }
 };
 
-
 exports.bulkCreateAccessoryMasters = async (req, res) => {
   try {
     const rawAccessories = req.body; // Expecting an array of accessory objects
@@ -484,11 +486,11 @@ exports.bulkCreateAccessoryMasters = async (req, res) => {
       {
         accessoryId: { $in: allAccessoryIds },
       },
-      "accessoryId"
+      "accessoryId",
     );
 
     const existingAccessoryIds = new Set(
-      existingAccessories.map((a) => a.accessoryId)
+      existingAccessories.map((a) => a.accessoryId),
     );
 
     const finalAccessoriesToInsert = [];
@@ -511,7 +513,7 @@ exports.bulkCreateAccessoryMasters = async (req, res) => {
     let createdAccessories = [];
     if (finalAccessoriesToInsert.length > 0) {
       createdAccessories = await accessoryMasterModel.insertMany(
-        finalAccessoriesToInsert
+        finalAccessoriesToInsert,
       );
     }
 
@@ -578,8 +580,6 @@ exports.bulkCreateAccessoryMasters = async (req, res) => {
 //     });
 //   }
 // };
-
-
 
 // exports.updateAccessoryMasters = async (req, res) => {
 //   try {
@@ -687,7 +687,6 @@ exports.bulkCreateAccessoryMasters = async (req, res) => {
 //   }
 // };
 
-
 exports.updateAccessoryMasters = async (req, res) => {
   try {
     const { id } = req.params;
@@ -708,7 +707,7 @@ exports.updateAccessoryMasters = async (req, res) => {
     }
 
     const updates = Object.fromEntries(
-      Object.entries(req.body).filter(([_, value]) => value !== undefined)
+      Object.entries(req.body).filter(([_, value]) => value !== undefined),
     );
 
     // age mapping
@@ -735,6 +734,7 @@ exports.updateAccessoryMasters = async (req, res) => {
       "with cse": "Employee",
       "sold to customer": "QstClient",
       "customer demo": "QstClient",
+      foc: "QstClient",
     };
 
     // ✅ assignment rules ONLY if status is being updated
@@ -792,7 +792,10 @@ exports.updateAccessoryMasters = async (req, res) => {
     }
 
     // ✅ ALWAYS auto-calc warranty
-    const autoWarranty = computeWarrantyStatus(accessory.invoiceDate, accessory.warrantyPeriod);
+    const autoWarranty = computeWarrantyStatus(
+      accessory.invoiceDate,
+      accessory.warrantyPeriod,
+    );
     if (autoWarranty) accessory.warnatyStatus = autoWarranty;
 
     // ✅ status change + history
@@ -824,9 +827,6 @@ exports.updateAccessoryMasters = async (req, res) => {
   }
 };
 
-
-
-
 exports.deleteAccessoryMasters = async (req, res) => {
   try {
     const { id } = req.params;
@@ -838,9 +838,8 @@ exports.deleteAccessoryMasters = async (req, res) => {
       });
     }
 
-    const deletedAccessoryMaster = await accessoryMasterModel.findByIdAndDelete(
-      id
-    );
+    const deletedAccessoryMaster =
+      await accessoryMasterModel.findByIdAndDelete(id);
 
     if (!deletedAccessoryMaster) {
       return res.status(404).json({

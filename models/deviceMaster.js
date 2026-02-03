@@ -11,12 +11,13 @@ const statusHistorySchema = new mongoose.Schema(
         "testing",
         "with technician",
         "with cse",
+        "foc",
       ],
     },
     changedAt: { type: Date, default: Date.now },
     changedBy: { type: String },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const deviceMasterSchema = new mongoose.Schema(
@@ -42,6 +43,7 @@ const deviceMasterSchema = new mongoose.Schema(
         "testing",
         "with technician",
         "with cse",
+        "foc",
       ],
       default: "stock",
     },
@@ -65,7 +67,7 @@ const deviceMasterSchema = new mongoose.Schema(
     stockEnteredAt: { type: Date },
     statusHistory: [statusHistorySchema],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const DeviceMaster = mongoose.model("DeviceMaster", deviceMasterSchema);
