@@ -177,20 +177,16 @@ exports.createSimMaster = async (req, res) => {
       const to = new Date(data.demoToDate);
 
       if (isNaN(from.getTime()) || isNaN(to.getTime())) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Invalid demoFromDate or demoToDate",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Invalid demoFromDate or demoToDate",
+        });
       }
       if (to < from) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "demoToDate cannot be earlier than demoFromDate",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "demoToDate cannot be earlier than demoFromDate",
+        });
       }
 
       data.demoFromDate = from;
@@ -393,20 +389,16 @@ exports.updateSimMaster = async (req, res) => {
         const to = new Date(sim.demoToDate);
 
         if (isNaN(from.getTime()) || isNaN(to.getTime())) {
-          return res
-            .status(400)
-            .json({
-              success: false,
-              message: "Invalid demoFromDate or demoToDate",
-            });
+          return res.status(400).json({
+            success: false,
+            message: "Invalid demoFromDate or demoToDate",
+          });
         }
         if (to < from) {
-          return res
-            .status(400)
-            .json({
-              success: false,
-              message: "demoToDate cannot be earlier than demoFromDate",
-            });
+          return res.status(400).json({
+            success: false,
+            message: "demoToDate cannot be earlier than demoFromDate",
+          });
         }
 
         sim.demoFromDate = from;
@@ -466,6 +458,7 @@ exports.getAllSimMasters = async (req, res) => {
           { customerOrAlgoEmployeeName: { $regex: search, $options: "i" } },
           { assignedToName: { $regex: search, $options: "i" } },
           { status: { $regex: search, $options: "i" } },
+          { simPerRate: { $regex: search, $options: "i" } },
         ],
       };
     }

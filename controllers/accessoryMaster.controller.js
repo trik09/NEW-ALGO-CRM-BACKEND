@@ -276,6 +276,7 @@ exports.getAllAccessoryMasters = async (req, res) => {
           { accessoryId: { $regex: search, $options: "i" } },
           { invoiceNumber: { $regex: search, $options: "i" } },
           { status: { $regex: search, $options: "i" } },
+          { accessoryPerRate: { $regex: search, $options: "i" } },
         ],
       };
     }

@@ -64,6 +64,8 @@ const deviceMasterSchema = new mongoose.Schema(
     demoFromDate: { type: Date },
     demoToDate: { type: Date },
 
+    devicePerRate: String,
+
     stockEnteredAt: { type: Date },
     statusHistory: [statusHistorySchema],
   },

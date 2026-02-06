@@ -85,6 +85,8 @@ const accessoryMasterSchema = new mongoose.Schema(
     demoFromDate: Date,
     demoToDate: Date,
 
+    accessoryPerRate: String,
+
     stockEnteredAt: { type: Date },
     statusHistory: [statusHistorySchema],
   },

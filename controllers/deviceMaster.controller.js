@@ -847,6 +847,7 @@ exports.getAllDeviceMasters = async (req, res) => {
           { deviceId: { $regex: search, $options: "i" } },
           { invoiceNumber: { $regex: search, $options: "i" } },
           { status: { $regex: search, $options: "i" } },
+          { devicePerRate: { $regex: search, $options: "i" } },
         ],
       };
     }

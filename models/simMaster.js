@@ -75,6 +75,8 @@ const simMasterSchema = new mongoose.Schema(
     // ✅ NEW: stock timing
     stockEnteredAt: { type: Date },
 
+    simPerRate: String,
+
     statusHistory: [statusHistorySchema],
   },
   { timestamps: true },
