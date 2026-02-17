@@ -114,5 +114,7 @@ router.post(
 
 router.post('/bulk-update-categories', technicianController.bulkUpdateTechnicianCategories)
 
+router.get("/get-tech-device-sim-accessories/:technicianId", technicianController.getTechDeviceSimAccessories);
+
 
 module.exports = router;

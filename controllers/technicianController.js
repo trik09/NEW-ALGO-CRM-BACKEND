@@ -7,6 +7,9 @@ const mongoose = require("mongoose");
 const dayjs = require("dayjs");
 
 const securityCodeModel = require("../models/securityCode.model");
+const DeviceMaster = require("../models/deviceMaster");
+const SimMaster = require("../models/simMaster");
+const AccessoryMaster = require("../models/accessoryMaster");
 
 exports.getAllTechnicians = async (req, res) => {
   try {
@@ -2569,6 +2572,81 @@ exports.VerifySecurityCodeOfTechnicianInFileUpload = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error'
+    });
+  }
+}
+
+
+
+exports.getTechDeviceSimAccessories = async (req, res) => {
+  try {
+    const { technicianId } = req.params;
+    console.log("Technician id : ", technicianId);
+
+    // Validate technicianId
+    if (!mongoose.Types.ObjectId.isValid(technicianId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid technician ID format",
+      });
+    }
+
+    // Verify technician exists
+    const technician = await Technician.findById(technicianId);
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician not found",
+      });
+    }
+
+    // Use Promise.all to fetch devices, sims, and accessories in parallel
+    const [devices, sims, accessories] = await Promise.all([
+      DeviceMaster.find({
+        status: "with technician",
+        assignedTo: technicianId
+      }).lean().select('-statusHistory'),
+
+      SimMaster.find({
+        status: "with technician",
+        assignedTo: technicianId
+      }).lean().select('-statusHistory'),
+
+      AccessoryMaster.find({
+        status: "with technician",
+        assignedTo: technicianId
+      }).lean().select('-statusHistory')
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Technician inventory retrieved successfully",
+      data: {
+        technician: {
+          id: technician._id,
+          name: technician.name,
+          nickName: technician.nickName,
+        },
+        inventory: {
+          devices: devices,
+          sims: sims,
+          accessories: accessories,
+        },
+        counts: {
+          totalDevices: devices.length,
+          totalSims: sims.length,
+          totalAccessories: accessories.length,
+          totalItems: devices.length + sims.length + accessories.length,
+        }
+      },
+    });
+
+  } catch (error) {
+    console.error("Error fetching technician device sim accessories:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
     });
   }
 }
