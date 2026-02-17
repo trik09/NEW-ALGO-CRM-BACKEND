@@ -3,6 +3,7 @@ const QstClient = require("../models/qstClient.model");
 const Technician = require("../models/technician.model");
 const Employee = require("../models/employee.model");
 const MonthlyMargin = require("../models/MonthlyMargin.model");
+const Task = require("../models/task.model");
 
 // Helper functions
 const getDateRanges = () => {
@@ -235,14 +236,14 @@ const getKeyClientStats = async (req, res) => {
     23,
     59,
     59,
-    999
+    999,
   );
 
   // 1st of current month
   const startOfCurrentMonth = new Date(
     today.getFullYear(),
     today.getMonth(),
-    1
+    1,
   );
 
   // Last month range
@@ -250,7 +251,7 @@ const getKeyClientStats = async (req, res) => {
   const sameDayLastMonth = new Date(
     lastMonth.getFullYear(),
     lastMonth.getMonth(),
-    today.getDate()
+    today.getDate(),
   );
   sameDayLastMonth.setHours(23, 59, 59, 999);
 
@@ -262,17 +263,29 @@ const getKeyClientStats = async (req, res) => {
     23,
     59,
     59,
-    999
+    999,
   );
 
-  const lastToLastMonthStart =new Date(today.getFullYear(), today.getMonth() - 2, 1);
-  const lastToLastMonthEnd = new Date(today.getFullYear(), today.getMonth() - 1, 0, 23, 59, 59, 999);
+  const lastToLastMonthStart = new Date(
+    today.getFullYear(),
+    today.getMonth() - 2,
+    1,
+  );
+  const lastToLastMonthEnd = new Date(
+    today.getFullYear(),
+    today.getMonth() - 1,
+    0,
+    23,
+    59,
+    59,
+    999,
+  );
 
   // Financial year start: April 1st
   const financialYearStart = new Date(
     today.getMonth() < 3 ? today.getFullYear() - 1 : today.getFullYear(),
     3,
-    1
+    1,
   );
 
   // Months completed in FY till last month (not including current month)
@@ -296,249 +309,275 @@ const getKeyClientStats = async (req, res) => {
 
   // === Fetch Key Clients Aggregation ===
   const keyClientPipeline = [
-  {
-    $match: { keyClient: true }
-  },
+    {
+      $match: { keyClient: true },
+    },
 
-  // 🔥 OPTIMIZED LOOKUP – filter inside lookup
-  {
-    $lookup: {
-      from: "tickets",
-      let: { clientId: "$_id" },
-      pipeline: [
-        {
-          $match: {
-            $expr: {
+    // 🔥 OPTIMIZED LOOKUP – filter inside lookup
+    {
+      $lookup: {
+        from: "tickets",
+        let: { clientId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$qstClientName", "$$clientId"] },
+                  { $eq: ["$ticketStatus", "work done"] },
+                  { $eq: [{ $type: "$technician" }, "objectId"] },
+                  { $gte: ["$ticketAvailabilityDate", financialYearStart] },
+                  { $lte: ["$ticketAvailabilityDate", today] },
+                ],
+              },
+            },
+          },
+          {
+            $project: {
+              ticketAvailabilityDate: 1,
+              noOfVehicles: 1,
+              vehicleNumbers: 1,
+              totalCustomerCharges: 1,
+            },
+          },
+        ],
+        as: "tickets",
+      },
+    },
+
+    // Split tickets into ranges
+    {
+      $addFields: {
+        currentMonthTickets: {
+          $filter: {
+            input: "$tickets",
+            as: "t",
+            cond: {
               $and: [
-                { $eq: ["$qstClientName", "$$clientId"] },
-                { $eq: ["$ticketStatus", "work done"] },
-                { $eq: [{ $type: "$technician" }, "objectId"] },
-                { $gte: ["$ticketAvailabilityDate", financialYearStart] },
-                { $lte: ["$ticketAvailabilityDate", today] }
-              ]
-            }
-          }
+                { $gte: ["$$t.ticketAvailabilityDate", startOfCurrentMonth] },
+                { $lte: ["$$t.ticketAvailabilityDate", today] },
+              ],
+            },
+          },
         },
-        {
-          $project: {
-            ticketAvailabilityDate: 1,
-            noOfVehicles: 1,
-            vehicleNumbers: 1,
-            totalCustomerCharges: 1
-          }
-        }
-      ],
-      as: "tickets"
-    }
-  },
-
-  // Split tickets into ranges
-  {
-    $addFields: {
-      currentMonthTickets: {
-        $filter: {
-          input: "$tickets",
-          as: "t",
-          cond: {
-            $and: [
-              { $gte: ["$$t.ticketAvailabilityDate", startOfCurrentMonth] },
-              { $lte: ["$$t.ticketAvailabilityDate", today] }
-            ]
-          }
-        }
-      },
-      lastMonthSameRangeTickets: {
-        $filter: {
-          input: "$tickets",
-          as: "t",
-          cond: {
-            $and: [
-              { $gte: ["$$t.ticketAvailabilityDate", lastMonth] },
-              { $lte: ["$$t.ticketAvailabilityDate", sameDayLastMonth] }
-            ]
-          }
-        }
-      },
-      lastMonthFullTickets: {
-        $filter: {
-          input: "$tickets",
-          as: "t",
-          cond: {
-            $and: [
-              { $gte: ["$$t.ticketAvailabilityDate", lastMonth] },
-              { $lte: ["$$t.ticketAvailabilityDate", lastMonthFullEnd] }
-            ]
-          }
-        }
-      },
-      fyTickets: {
-        $filter: {
-          input: "$tickets",
-          as: "t",
-          cond: {
-            $and: [
-              { $gte: ["$$t.ticketAvailabilityDate", financialYearStart] },
-              { $lte: ["$$t.ticketAvailabilityDate", today] }
-            ]
-          }
-        }
-      }
-    }
-  },
-
-  // Calculations
-  {
-    $addFields: {
-      totalVehiclesThisMonth: {
-        $sum: {
-          $map: {
-            input: "$currentMonthTickets",
+        lastMonthSameRangeTickets: {
+          $filter: {
+            input: "$tickets",
             as: "t",
-            in: {
-              $cond: [
-                { $gt: ["$$t.noOfVehicles", 0] },
-                "$$t.noOfVehicles",
-                { $size: { $ifNull: ["$$t.vehicleNumbers", []] } }
-              ]
-            }
-          }
-        }
-      },
-      totalCustomerChargesThisMonth: {
-        $sum: "$currentMonthTickets.totalCustomerCharges"
-      },
-      ticketCountThisMonth: { $size: "$currentMonthTickets" },
-
-      totalVehiclesLastMonth: {
-        $sum: {
-          $map: {
-            input: "$lastMonthSameRangeTickets",
+            cond: {
+              $and: [
+                { $gte: ["$$t.ticketAvailabilityDate", lastMonth] },
+                { $lte: ["$$t.ticketAvailabilityDate", sameDayLastMonth] },
+              ],
+            },
+          },
+        },
+        lastMonthFullTickets: {
+          $filter: {
+            input: "$tickets",
             as: "t",
-            in: {
-              $cond: [
-                { $gt: ["$$t.noOfVehicles", 0] },
-                "$$t.noOfVehicles",
-                { $size: { $ifNull: ["$$t.vehicleNumbers", []] } }
-              ]
-            }
-          }
-        }
-      },
-      totalCustomerChargesLastMonth: {
-        $sum: "$lastMonthSameRangeTickets.totalCustomerCharges"
-      },
-      ticketCountLastMonth: { $size: "$lastMonthSameRangeTickets" },
-
-      totalVehiclesLastMonthTotal: {
-        $sum: {
-          $map: {
-            input: "$lastMonthFullTickets",
+            cond: {
+              $and: [
+                { $gte: ["$$t.ticketAvailabilityDate", lastMonth] },
+                { $lte: ["$$t.ticketAvailabilityDate", lastMonthFullEnd] },
+              ],
+            },
+          },
+        },
+        lastToLastMonthTickets: {
+          $filter: {
+            input: "$tickets",
             as: "t",
-            in: {
-              $cond: [
-                { $gt: ["$$t.noOfVehicles", 0] },
-                "$$t.noOfVehicles",
-                { $size: { $ifNull: ["$$t.vehicleNumbers", []] } }
-              ]
-            }
-          }
-        }
-      },
-      totalCustomerChargesLastMonthTotal: {
-        $sum: "$lastMonthFullTickets.totalCustomerCharges"
-      },
-
-      totalVehiclesFY: {
-        $sum: {
-          $map: {
-            input: "$fyTickets",
+            cond: {
+              $and: [
+                { $gte: ["$$t.ticketAvailabilityDate", lastToLastMonthStart] },
+                { $lte: ["$$t.ticketAvailabilityDate", lastToLastMonthEnd] },
+              ],
+            },
+          },
+        },
+        fyTickets: {
+          $filter: {
+            input: "$tickets",
             as: "t",
-            in: {
-              $cond: [
-                { $gt: ["$$t.noOfVehicles", 0] },
-                "$$t.noOfVehicles",
-                { $size: { $ifNull: ["$$t.vehicleNumbers", []] } }
-              ]
-            }
-          }
-        }
+            cond: {
+              $and: [
+                { $gte: ["$$t.ticketAvailabilityDate", financialYearStart] },
+                { $lte: ["$$t.ticketAvailabilityDate", today] },
+              ],
+            },
+          },
+        },
       },
-      totalCustomerChargesFY: {
-        $sum: "$fyTickets.totalCustomerCharges"
+    },
+
+    // Calculations
+    {
+      $addFields: {
+        totalVehiclesThisMonth: {
+          $sum: {
+            $map: {
+              input: "$currentMonthTickets",
+              as: "t",
+              in: {
+                $cond: [
+                  { $gt: ["$$t.noOfVehicles", 0] },
+                  "$$t.noOfVehicles",
+                  { $size: { $ifNull: ["$$t.vehicleNumbers", []] } },
+                ],
+              },
+            },
+          },
+        },
+        totalCustomerChargesThisMonth: {
+          $sum: "$currentMonthTickets.totalCustomerCharges",
+        },
+        ticketCountThisMonth: { $size: "$currentMonthTickets" },
+
+        totalVehiclesLastMonth: {
+          $sum: {
+            $map: {
+              input: "$lastMonthSameRangeTickets",
+              as: "t",
+              in: {
+                $cond: [
+                  { $gt: ["$$t.noOfVehicles", 0] },
+                  "$$t.noOfVehicles",
+                  { $size: { $ifNull: ["$$t.vehicleNumbers", []] } },
+                ],
+              },
+            },
+          },
+        },
+        totalCustomerChargesLastMonth: {
+          $sum: "$lastMonthSameRangeTickets.totalCustomerCharges",
+        },
+        ticketCountLastMonth: { $size: "$lastMonthSameRangeTickets" },
+
+        totalVehiclesLastMonthTotal: {
+          $sum: {
+            $map: {
+              input: "$lastMonthFullTickets",
+              as: "t",
+              in: {
+                $cond: [
+                  { $gt: ["$$t.noOfVehicles", 0] },
+                  "$$t.noOfVehicles",
+                  { $size: { $ifNull: ["$$t.vehicleNumbers", []] } },
+                ],
+              },
+            },
+          },
+        },
+        totalCustomerChargesLastMonthTotal: {
+          $sum: "$lastMonthFullTickets.totalCustomerCharges",
+        },
+
+        lastToLastMonthVehicleTotal: {
+          $sum: {
+            $map: {
+              input: "$lastToLastMonthTickets",
+              as: "t",
+              in: {
+                $cond: [
+                  { $gt: ["$$t.noOfVehicles", 0] },
+                  "$$t.noOfVehicles",
+                  { $size: { $ifNull: ["$$t.vehicleNumbers", []] } },
+                ],
+              },
+            },
+          },
+        },
+
+        totalVehiclesFY: {
+          $sum: {
+            $map: {
+              input: "$fyTickets",
+              as: "t",
+              in: {
+                $cond: [
+                  { $gt: ["$$t.noOfVehicles", 0] },
+                  "$$t.noOfVehicles",
+                  { $size: { $ifNull: ["$$t.vehicleNumbers", []] } },
+                ],
+              },
+            },
+          },
+        },
+        totalCustomerChargesFY: {
+          $sum: "$fyTickets.totalCustomerCharges",
+        },
+        ticketCountFY: { $size: "$fyTickets" },
+
+        avgVehiclesPerMonthFY: {
+          $cond: [
+            { $gt: [monthsElapsedInFY, 0] },
+            { $divide: ["$totalVehiclesFY", monthsElapsedInFY] },
+            0,
+          ],
+        },
+        avgCustomerChargesPerMonthFY: {
+          $cond: [
+            { $gt: [monthsElapsedInFY, 0] },
+            { $divide: ["$totalCustomerChargesFY", monthsElapsedInFY] },
+            0,
+          ],
+        },
       },
-      ticketCountFY: { $size: "$fyTickets" },
+    },
 
-      avgVehiclesPerMonthFY: {
-        $cond: [
-          { $gt: [monthsElapsedInFY, 0] },
-          { $divide: ["$totalVehiclesFY", monthsElapsedInFY] },
-          0
-        ]
+    // Cleanup
+    {
+      $project: {
+        tickets: 0,
+        currentMonthTickets: 0,
+        lastMonthSameRangeTickets: 0,
+        lastMonthFullTickets: 0,
+        fyTickets: 0,
       },
-      avgCustomerChargesPerMonthFY: {
-        $cond: [
-          { $gt: [monthsElapsedInFY, 0] },
-          { $divide: ["$totalCustomerChargesFY", monthsElapsedInFY] },
-          0
-        ]
-      }
-    }
-  },
-
-  // Cleanup
-  {
-    $project: {
-      tickets: 0,
-      currentMonthTickets: 0,
-      lastMonthSameRangeTickets: 0,
-      lastMonthFullTickets: 0,
-      fyTickets: 0
-    }
-  }
-];
-
+    },
+  ];
 
   // === Fetch Zone Data for Key Clients from Tickets' Assignees ===
   const keyClientZoneDataPipeLine = [
-  { $match: { keyClient: true } },
-  {
-    $lookup: {
-      from: "tickets",
-      let: { clientId: "$_id" },
-      pipeline: [
-        {
-          $match: {
-            $expr: {
-              $and: [
-                { $eq: ["$qstClientName", "$$clientId"] },
-                { $ne: ["$ticketStatus", "work done"] }
-              ]
-            }
-          }
-        },
-        { $project: { assignee: 1 } }
-      ],
-      as: "tickets"
-    }
-  },
-  { $unwind: "$tickets" },
-  {
-    $lookup: {
-      from: "employees",
-      localField: "tickets.assignee",
-      foreignField: "_id",
-      as: "emp"
-    }
-  },
-  { $unwind: "$emp" },
-  {
-    $group: {
-      _id: "$_id",
-      distinctZones: { $addToSet: "$emp.zone" }
-    }
-  }
-];
-
+    { $match: { keyClient: true } },
+    {
+      $lookup: {
+        from: "tickets",
+        let: { clientId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$qstClientName", "$$clientId"] },
+                  { $ne: ["$ticketStatus", "work done"] },
+                ],
+              },
+            },
+          },
+          { $project: { assignee: 1 } },
+        ],
+        as: "tickets",
+      },
+    },
+    { $unwind: "$tickets" },
+    {
+      $lookup: {
+        from: "employees",
+        localField: "tickets.assignee",
+        foreignField: "_id",
+        as: "emp",
+      },
+    },
+    { $unwind: "$emp" },
+    {
+      $group: {
+        _id: "$_id",
+        distinctZones: { $addToSet: "$emp.zone" },
+      },
+    },
+  ];
 
   const allClientSingleStatsPipeline = [
     {
@@ -732,15 +771,23 @@ const getKeyClientStats = async (req, res) => {
             ],
           },
         },
-      
+
         lastToLastMonthVehicleTotal: {
-           $sum: {
+          $sum: {
             $cond: [
               {
                 $and: [
-                  { $gte: ["$tickets.ticketAvailabilityDate", lastToLastMonthStart] },
                   {
-                    $lte: ["$tickets.ticketAvailabilityDate", lastToLastMonthEnd],
+                    $gte: [
+                      "$tickets.ticketAvailabilityDate",
+                      lastToLastMonthStart,
+                    ],
+                  },
+                  {
+                    $lte: [
+                      "$tickets.ticketAvailabilityDate",
+                      lastToLastMonthEnd,
+                    ],
                   },
                 ],
               },
@@ -756,13 +803,21 @@ const getKeyClientStats = async (req, res) => {
           },
         },
         lastToLastMonthVehicleTotalCustomerCharges: {
-           $sum: {
+          $sum: {
             $cond: [
               {
                 $and: [
-                  { $gte: ["$tickets.ticketAvailabilityDate", lastToLastMonthStart] },
                   {
-                    $lte: ["$tickets.ticketAvailabilityDate", lastToLastMonthEnd],
+                    $gte: [
+                      "$tickets.ticketAvailabilityDate",
+                      lastToLastMonthStart,
+                    ],
+                  },
+                  {
+                    $lte: [
+                      "$tickets.ticketAvailabilityDate",
+                      lastToLastMonthEnd,
+                    ],
                   },
                 ],
               },
@@ -900,18 +955,133 @@ const getKeyClientStats = async (req, res) => {
     },
   ];
 
-  const [
-  keyClientData,
-  keyClientZoneData,
-  allClientSingleStats,
-  allClientFYTotals
-] = await Promise.all([
-  QstClient.aggregate(keyClientPipeline),
-  QstClient.aggregate(keyClientZoneDataPipeLine),
-  QstClient.aggregate(allClientSingleStatsPipeline),
-  QstClient.aggregate(allClientFYTotalsPipeline)
-]);
+  // === Fetch Key Client Vehicles Summary (Work Done && Task != Installation) ===
+  const installationTask = await Task.findOne({
+    taskName: { $regex: /^installation$/i },
+  });
+  const installationTaskId = installationTask ? installationTask._id : null;
 
+  const keyClientSummaryPipeline = [
+    { $match: { keyClient: true } },
+    {
+      $lookup: {
+        from: "tickets",
+        let: { clientId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$qstClientName", "$$clientId"] },
+                  { $eq: ["$ticketStatus", "work done"] },
+                  { $ne: ["$taskType", installationTaskId] },
+                  { $eq: [{ $type: "$technician" }, "objectId"] },
+                  { $gte: ["$ticketAvailabilityDate", lastToLastMonthStart] },
+                  { $lte: ["$ticketAvailabilityDate", today] },
+                ],
+              },
+            },
+          },
+        ],
+        as: "tickets",
+      },
+    },
+    { $unwind: "$tickets" },
+    {
+      $group: {
+        _id: null,
+        thisMonth: {
+          $sum: {
+            $cond: [
+              {
+                $gte: ["$tickets.ticketAvailabilityDate", startOfCurrentMonth],
+              },
+              {
+                $cond: [
+                  { $gt: ["$tickets.noOfVehicles", 0] },
+                  "$tickets.noOfVehicles",
+                  { $size: { $ifNull: ["$tickets.vehicleNumbers", []] } },
+                ],
+              },
+              0,
+            ],
+          },
+        },
+        lastMonth: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $gte: ["$tickets.ticketAvailabilityDate", lastMonth] },
+                  {
+                    $lte: ["$tickets.ticketAvailabilityDate", lastMonthFullEnd],
+                  },
+                ],
+              },
+              {
+                $cond: [
+                  { $gt: ["$tickets.noOfVehicles", 0] },
+                  "$tickets.noOfVehicles",
+                  { $size: { $ifNull: ["$tickets.vehicleNumbers", []] } },
+                ],
+              },
+              0,
+            ],
+          },
+        },
+        lastToLastMonth: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  {
+                    $gte: [
+                      "$tickets.ticketAvailabilityDate",
+                      lastToLastMonthStart,
+                    ],
+                  },
+                  {
+                    $lte: [
+                      "$tickets.ticketAvailabilityDate",
+                      lastToLastMonthEnd,
+                    ],
+                  },
+                ],
+              },
+              {
+                $cond: [
+                  { $gt: ["$tickets.noOfVehicles", 0] },
+                  "$tickets.noOfVehicles",
+                  { $size: { $ifNull: ["$tickets.vehicleNumbers", []] } },
+                ],
+              },
+              0,
+            ],
+          },
+        },
+      },
+    },
+  ];
+
+  const [
+    keyClientData,
+    keyClientZoneData,
+    allClientSingleStats,
+    allClientFYTotals,
+    keyClientVehiclesSummaryResult,
+  ] = await Promise.all([
+    QstClient.aggregate(keyClientPipeline),
+    QstClient.aggregate(keyClientZoneDataPipeLine),
+    QstClient.aggregate(allClientSingleStatsPipeline),
+    QstClient.aggregate(allClientFYTotalsPipeline),
+    QstClient.aggregate(keyClientSummaryPipeline),
+  ]);
+
+  const keyClientVehiclesSummary = keyClientVehiclesSummaryResult[0] || {
+    thisMonth: 0,
+    lastMonth: 0,
+    lastToLastMonth: 0,
+  };
 
   // Create a map of client ID to zones for easy lookup
   const clientZoneMap = {};
@@ -1126,12 +1296,6 @@ const getKeyClientStats = async (req, res) => {
   // ]);
 
   // === Single Row Stats for All Clients ===
-  
-
-
-
-
-
 
   const totalStats = allClientFYTotals[0] || {
     totalVehiclesFYAllClients: 0,
@@ -1215,6 +1379,7 @@ const getKeyClientStats = async (req, res) => {
     //  allClientData,
     allClientStatsSingleRow: allClientSingleStats[0] || {},
     totalStatsForAllClients: totalStats,
+    keyClientVehiclesSummary,
     financialYearInfo: {
       startDate: financialYearStart,
       monthsElapsed: monthsElapsedInFY,
@@ -1234,7 +1399,7 @@ const getTechnicianDateRanges = () => {
     0,
     0,
     0,
-    0
+    0,
   );
   const endOfCurrentMonth = new Date(
     now.getFullYear(),
@@ -1243,14 +1408,14 @@ const getTechnicianDateRanges = () => {
     23,
     59,
     59,
-    999
+    999,
   );
 
   // last month MTD (handles months with fewer days)
   const daysInLastMonth = new Date(
     now.getFullYear(),
     now.getMonth(),
-    0
+    0,
   ).getDate();
   const lastMonthDay = Math.min(now.getDate(), daysInLastMonth);
   const startOfLastMonth = new Date(
@@ -1260,7 +1425,7 @@ const getTechnicianDateRanges = () => {
     0,
     0,
     0,
-    0
+    0,
   );
   const endOfLastMonthTillDate = new Date(
     now.getFullYear(),
@@ -1269,7 +1434,7 @@ const getTechnicianDateRanges = () => {
     23,
     59,
     59,
-    999
+    999,
   );
 
   // full previous month (e.g. 1 Sep → 30 Sep if today is 1 Oct)
@@ -1280,7 +1445,7 @@ const getTechnicianDateRanges = () => {
     23,
     59,
     59,
-    999
+    999,
   );
 
   return {
@@ -1292,8 +1457,6 @@ const getTechnicianDateRanges = () => {
     endOfLastMonthFull,
   };
 };
-
-
 
 // ---- Core aggregation for one window ----
 const aggregateTechStats = async (startDate, endDate) => {
@@ -1394,7 +1557,7 @@ const getTechnicianStats = async (req, res) => {
     const startOfCurrentMonthTillDate = new Date(
       currentDate.getFullYear(),
       currentDate.getMonth(),
-      1
+      1,
     );
 
     // Calculate start of last month till same date last month
@@ -1403,7 +1566,7 @@ const getTechnicianStats = async (req, res) => {
     const startOfLastMonthTillDate = new Date(
       lastMonthSameDate.getFullYear(),
       lastMonthSameDate.getMonth(),
-      1
+      1,
     );
     const endOfLastMonthTillSameDate = new Date(
       lastMonthSameDate.getFullYear(),
@@ -1412,7 +1575,7 @@ const getTechnicianStats = async (req, res) => {
       23,
       59,
       59,
-      999
+      999,
     );
 
     const [
@@ -1471,18 +1634,18 @@ const getTechnicianStats = async (req, res) => {
 
     console.log(
       "TECHNICIAN DEBUG - Direct count:",
-      debugDirectCount[0]?.totalVehicles || 0
+      debugDirectCount[0]?.totalVehicles || 0,
     );
     console.log(
       "TECHNICIAN DEBUG - Through aggregation:",
       lastMonthTotal.vehiclesByPayrollTechnicians +
-        lastMonthTotal.vehiclesByFreelanceTechnicians
+        lastMonthTotal.vehiclesByFreelanceTechnicians,
     );
     console.log(
       "TECHNICIAN DEBUG - Through aggregation:",
       lastMonthTotal.vehiclesByPayrollTechnicians +
         lastMonthTotal.vehiclesByFreelanceTechnicians +
-        (lastMonthTotal.vehiclesByUnknownTechnicians || 0)
+        (lastMonthTotal.vehiclesByUnknownTechnicians || 0),
     );
 
     const debugDates = () => {
@@ -1492,20 +1655,20 @@ const getTechnicianStats = async (req, res) => {
         "Technician API - Last Month Full:",
         techRanges.startOfLastMonth,
         "to",
-        techRanges.endOfLastMonthFull
+        techRanges.endOfLastMonthFull,
       );
       console.log(
         "Client API - Last Month Full:",
         lastMonth,
         "to",
-        lastMonthFullEnd
+        lastMonthFullEnd,
       );
       console.log("========================");
     };
     // (optional) also return the technician lists so you "see proper IDs"
     const techs = await Technician.find(
       {},
-      { _id: 1, name: 1, technicianCategoryType: 1 }
+      { _id: 1, name: 1, technicianCategoryType: 1 },
     ).lean();
 
     res.status(200).json({
@@ -1534,8 +1697,6 @@ const getTechnicianStats = async (req, res) => {
 };
 
 // /----------------------------------------------------------------------------------
-
-
 
 function startOfDay(d) {
   const dt = new Date(d);
@@ -1605,14 +1766,14 @@ const getVehicalsData = async (req, res) => {
     const thisMonthStart = new Date(
       todayStart.getFullYear(),
       todayStart.getMonth(),
-      1
+      1,
     );
     const thisMonthEnd = todayEnd;
 
     const lastMonthStart = new Date(
       todayStart.getFullYear(),
       todayStart.getMonth() - 1,
-      1
+      1,
     );
     const lastMonthEnd = new Date(
       todayStart.getFullYear(),
@@ -1621,7 +1782,7 @@ const getVehicalsData = async (req, res) => {
       23,
       59,
       59,
-      999
+      999,
     );
 
     // ✅ Planned ranges
@@ -1635,10 +1796,8 @@ const getVehicalsData = async (req, res) => {
     // Zones that you show in UI
     const zones = ["north", "east", "west1", "west2", "south"];
 
-
     const last7DaysStart = startOfDay(addDays(todayStart, -6)); // includes today
     const last7DaysEnd = todayEnd;
-
 
     // ✅ Vehicles Done aggregation
     const vehiclesDoneAgg = await Ticket.aggregate([
@@ -1727,20 +1886,19 @@ const getVehicalsData = async (req, res) => {
           },
 
           last7Days: {
-  $sum: {
-    $cond: [
-      {
-        $and: [
-          { $gte: ["$tad", last7DaysStart] },
-          { $lte: ["$tad", last7DaysEnd] }
-        ]
-      },
-      "$noOfVehicles",
-      0
-    ]
-  }
-},
-
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $gte: ["$tad", last7DaysStart] },
+                    { $lte: ["$tad", last7DaysEnd] },
+                  ],
+                },
+                "$noOfVehicles",
+                0,
+              ],
+            },
+          },
 
           thisWeek: {
             $sum: {
@@ -1986,7 +2144,7 @@ const getTechnicianStats1 = async (req, res) => {
     const startOfCurrentMonthTillDate = new Date(
       currentDate.getFullYear(),
       currentDate.getMonth(),
-      1
+      1,
     );
 
     // Calculate start of last month till same date last month
@@ -1995,7 +2153,7 @@ const getTechnicianStats1 = async (req, res) => {
     const startOfLastMonthTillDate = new Date(
       lastMonthSameDate.getFullYear(),
       lastMonthSameDate.getMonth(),
-      1
+      1,
     );
     const endOfLastMonthTillSameDate = new Date(
       lastMonthSameDate.getFullYear(),
@@ -2004,7 +2162,7 @@ const getTechnicianStats1 = async (req, res) => {
       23,
       59,
       59,
-      999
+      999,
     );
 
     const [
@@ -2034,7 +2192,7 @@ const getTechnicianStats1 = async (req, res) => {
     // (optional) also return the technician lists so you "see proper IDs"
     const techs = await Technician.find(
       {},
-      { _id: 1, name: 1, technicianCategoryType: 1 }
+      { _id: 1, name: 1, technicianCategoryType: 1 },
     ).lean();
 
     res.status(200).json({
@@ -2117,8 +2275,8 @@ const getAggregatedTicketDetails = async (req, res) => {
         startDate = startOfDay(
           addDays(
             todayStart,
-            -todayStart.getDay() + (todayStart.getDay() === 0 ? -6 : 1)
-          )
+            -todayStart.getDay() + (todayStart.getDay() === 0 ? -6 : 1),
+          ),
         );
         endDate = todayEnd;
         break;
@@ -2127,8 +2285,8 @@ const getAggregatedTicketDetails = async (req, res) => {
         startDate = startOfDay(
           addDays(
             todayStart,
-            -todayStart.getDay() - 6 + (todayStart.getDay() === 0 ? -7 : 1)
-          )
+            -todayStart.getDay() - 6 + (todayStart.getDay() === 0 ? -7 : 1),
+          ),
         );
         // Sunday of last week
         endDate = endOfDay(addDays(startDate, 6));
@@ -2137,7 +2295,7 @@ const getAggregatedTicketDetails = async (req, res) => {
         startDate = new Date(
           todayStart.getFullYear(),
           todayStart.getMonth(),
-          1
+          1,
         );
         endDate = todayEnd;
         break;
@@ -2145,7 +2303,7 @@ const getAggregatedTicketDetails = async (req, res) => {
         startDate = new Date(
           todayStart.getFullYear(),
           todayStart.getMonth() - 1,
-          1
+          1,
         );
         endDate = new Date(
           todayStart.getFullYear(),
@@ -2154,7 +2312,7 @@ const getAggregatedTicketDetails = async (req, res) => {
           23,
           59,
           59,
-          999
+          999,
         ); // Last day of last month
         break;
 
@@ -2225,14 +2383,14 @@ const getAggregatedTicketDetails = async (req, res) => {
       if (dateFilter === "moreThan2Days") {
         tickets = tickets.filter((ticket) => {
           const daysLate = Math.floor(
-            (now - ticket.dueDate) / (1000 * 60 * 60 * 24)
+            (now - ticket.dueDate) / (1000 * 60 * 60 * 24),
           );
           return daysLate > 2;
         });
       } else if (daysLateValue !== null) {
         tickets = tickets.filter((ticket) => {
           const daysLate = Math.floor(
-            (now - ticket.dueDate) / (1000 * 60 * 60 * 24)
+            (now - ticket.dueDate) / (1000 * 60 * 60 * 24),
           );
           return daysLate === daysLateValue;
         });
@@ -2268,7 +2426,7 @@ const getDateRangesForPayrollTechniciansData = () => {
   // This week (Monday to Sunday)
   const thisWeekStart = new Date(today);
   thisWeekStart.setDate(
-    today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)
+    today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1),
   );
   thisWeekStart.setHours(0, 0, 0, 0);
 
@@ -2404,13 +2562,19 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
       }
 
       // ---- THIS MONTH
-      if (date >= dateRanges.thisMonthStart && date <= dateRanges.thisMonthEnd) {
+      if (
+        date >= dateRanges.thisMonthStart &&
+        date <= dateRanges.thisMonthEnd
+      ) {
         techObj.thisMonth += vehicles;
         totalThisMonthCalls += vehicles;
       }
 
       // ---- LAST MONTH
-      if (date >= dateRanges.lastMonthStart && date <= dateRanges.lastMonthEnd) {
+      if (
+        date >= dateRanges.lastMonthStart &&
+        date <= dateRanges.lastMonthEnd
+      ) {
         techObj.lastMonth += vehicles;
         totalLastMonthCalls += vehicles;
       }
@@ -2434,11 +2598,7 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
 
     const thisMonthProductivity =
       noOfPayrollTechs && daysTillToday
-        ? +(
-            totalThisMonthCalls /
-            noOfPayrollTechs /
-            daysTillToday
-          ).toFixed(2)
+        ? +(totalThisMonthCalls / noOfPayrollTechs / daysTillToday).toFixed(2)
         : 0;
 
     const lastMonthProductivity =
@@ -2476,7 +2636,6 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
     });
   }
 };
-
 
 async function getMonthlyMargins(req, res) {
   try {
@@ -2616,7 +2775,7 @@ const getTicketsByTechnicianAndDateRange = async (req, res) => {
       .populate("technician", "name nickName")
       .populate("taskType", "taskName")
       .select(
-        "ticketSKUId vehicleNumbers noOfVehicles subjectLine description ticketAvailabilityDate technician taskType"
+        "ticketSKUId vehicleNumbers noOfVehicles subjectLine description ticketAvailabilityDate technician taskType",
       )
       .sort({ ticketAvailabilityDate: -1 });
 
@@ -2626,7 +2785,7 @@ const getTicketsByTechnicianAndDateRange = async (req, res) => {
       count: tickets.length,
       totalVehicles: tickets.reduce(
         (sum, ticket) => sum + ticket.noOfVehicles,
-        0
+        0,
       ),
     });
   } catch (error) {
@@ -2872,7 +3031,7 @@ const getZoneCompletionMonth = async (req, res) => {
           workDoneTickets,
           percentage: Math.round(percentage * 100) / 100,
         };
-      })
+      }),
     );
 
     res.status(200).json({
@@ -2887,7 +3046,7 @@ const getZoneCompletionMonth = async (req, res) => {
   } catch (error) {
     console.error(
       "Error fetching zone completion percentages (monthly):",
-      error
+      error,
     );
     res.status(500).json({
       success: false,
