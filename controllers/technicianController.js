@@ -2650,3 +2650,57 @@ exports.getTechDeviceSimAccessories = async (req, res) => {
     });
   }
 }
+
+// Get technician's spare inventory (items with status "with technician")
+exports.getTechnicianSpareInventory = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Query each master collection for items with status "with technician" assigned to this technician
+    const [devices, sims, accessories] = await Promise.all([
+      DeviceMaster.find({
+        status: 'with technician',
+        assignedTo: id,
+        assignedToModel: 'Technician',
+        isDefective: { $ne: true } // Exclude already defective items
+      }).lean(),
+
+      SimMaster.find({
+        status: 'with technician',
+        assignedTo: id,
+        assignedToModel: 'Technician',
+        isDefective: { $ne: true }
+      }).lean(),
+
+      AccessoryMaster.find({
+        status: 'with technician',
+        assignedTo: id,
+        assignedToModel: 'Technician',
+        isDefective: { $ne: true }
+      }).lean()
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Spare inventory retrieved successfully',
+      data: {
+        devices,
+        sims,
+        accessories,
+        summary: {
+          totalDevices: devices.length,
+          totalSims: sims.length,
+          totalAccessories: accessories.length,
+          totalSpares: devices.length + sims.length + accessories.length
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching technician spare inventory:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching spare inventory',
+      error: error.message
+    });
+  }
+};

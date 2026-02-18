@@ -12,6 +12,7 @@ const statusHistorySchema = new mongoose.Schema(
         "with technician",
         "with cse",
         "foc",
+        "defective",
       ],
     },
     changedAt: { type: Date, default: Date.now },
@@ -44,6 +45,7 @@ const deviceMasterSchema = new mongoose.Schema(
         "with technician",
         "with cse",
         "foc",
+        "defective",
       ],
       default: "stock",
     },
@@ -68,6 +70,14 @@ const deviceMasterSchema = new mongoose.Schema(
 
     stockEnteredAt: { type: Date },
     statusHistory: [statusHistorySchema],
+
+    // Defect tracking fields
+    isDefective: {
+      type: Boolean,
+      default: false
+    },
+    defectMarkedDate: Date,
+    defectReason: String,
   },
   { timestamps: true },
 );

@@ -2,12 +2,12 @@ const mongoose = require('mongoose');
 const generateTicketSKUId = require('../utils/TicketSkuIdGenerator');
 
 const ticketSchema = new mongoose.Schema({
-   ticketSKUId: {
+  ticketSKUId: {
     type: String,
     required: true,
     unique: true,
     maxlength: 15,
- // here we generate  nanoId for ticketSKUId with retry menthods in collision (It used in banck neft remark option for unique ticket recognization) this handle from reate ticket controller
+    // here we generate  nanoId for ticketSKUId with retry menthods in collision (It used in banck neft remark option for unique ticket recognization) this handle from reate ticket controller
   },
 
   // Customer Information Fields (NEW)
@@ -68,7 +68,7 @@ const ticketSchema = new mongoose.Schema({
     default: 0,
     required: false
   },
-    securityCodeId: {
+  securityCodeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'SecurityCode',
     required: false, // optional during creation if technician not assigned
@@ -96,11 +96,11 @@ const ticketSchema = new mongoose.Schema({
   },
   oldVehicleNumber: {
     type: [String],
-    default: [], 
-    required:false,
+    default: [],
+    required: false,
   },
 
-  vehicleNumbers : [
+  vehicleNumbers: [
     {
       vehicleNumber: {
         type: String,
@@ -112,13 +112,13 @@ const ticketSchema = new mongoose.Schema({
       },
       videoURL: {
         type: String,
-        default:""
+        default: ""
       },
-      isResinstalationTypeNewVehicalNumber:{
-        type:Boolean,
-       default:false
+      isResinstalationTypeNewVehicalNumber: {
+        type: Boolean,
+        default: false
       } // this line ensure that , this ticket combination of old new vehical type
-     
+
     }
   ],
   noOfVehicles: {
@@ -149,7 +149,7 @@ const ticketSchema = new mongoose.Schema({
     // required: true,
   },
 
-    qstProjectID: {  // Add this new field
+  qstProjectID: {  // Add this new field
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Project',
   },
@@ -203,8 +203,8 @@ const ticketSchema = new mongoose.Schema({
   },
 
   remark: {
-    type : String,
-    default : ""
+    type: String,
+    default: ""
   },
 
 
@@ -227,11 +227,11 @@ const ticketSchema = new mongoose.Schema({
   },
 
   technicianNameString: {
-type: String,
-default:""
+    type: String,
+    default: ""
   },
 
-   // NEW: Terms & Conditions Agreement
+  // NEW: Terms & Conditions Agreement
   agreedToTerms: {
     type: Boolean,
     default: false,
@@ -241,23 +241,23 @@ default:""
     default: null,
   },
 
-  devicetypeNameString : {
+  devicetypeNameString: {
     type: String,
-    default : "",
+    default: "",
   },
-  assigneeNameString : {
+  assigneeNameString: {
     type: String,
     default: "",
   },
 
 
-   // this is used to show data when taskType will deleted any how then taskType objectId will be null 
- taskTypeString: {
+  // this is used to show data when taskType will deleted any how then taskType objectId will be null 
+  taskTypeString: {
     type: String,
     default: '',
   },
 
- vehicleRegistrationNumber: {
+  vehicleRegistrationNumber: {
     type: String,
     default: '',
   },
@@ -290,70 +290,70 @@ default:""
     type: String,
     default: '',
   },
-  isTicketClosed:{
-    type:Boolean,
-    default:false,
+  isTicketClosed: {
+    type: Boolean,
+    default: false,
   },
-//  attachedFiles: [{
-//     key: String,
-//     name: String,
-//     type: String,
-//     size: Number,
-//     url: String
-//   }],
- attachedFiles: [String],
- 
-dueDate: {
-  type: Date,
-  required: true
-},
+  //  attachedFiles: [{
+  //     key: String,
+  //     name: String,
+  //     type: String,
+  //     size: Number,
+  //     url: String
+  //   }],
+  attachedFiles: [String],
 
-dueDateEditCount: {
-  type: Number,
-  default: 0, 
-  min: 0,
-  max: 2
-},
+  dueDate: {
+    type: Date,
+    required: true
+  },
+
+  dueDateEditCount: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 2
+  },
 
 
-ticketAvailabilityDate:{  // also known as vehicle avalability date
-  type:Date,
-  required:false,
-    default: null 
+  ticketAvailabilityDate: {  // also known as vehicle avalability date
+    type: Date,
+    required: false,
+    default: null
 
-},
-annexturepaid:{
-  type:Boolean,
-  default: false
-},
-isTechnicianPaymentSuccess:{
-  type:Boolean,
-  default:false
-},
- isTechnicianPaymentSuccessDate:{
-   type:Date,
- },
-// this ticket is created by client not org employee....
- autoAssigned:{
-  type:Boolean,
-  default:false
- },
+  },
+  annexturepaid: {
+    type: Boolean,
+    default: false
+  },
+  isTechnicianPaymentSuccess: {
+    type: Boolean,
+    default: false
+  },
+  isTechnicianPaymentSuccessDate: {
+    type: Date,
+  },
+  // this ticket is created by client not org employee....
+  autoAssigned: {
+    type: Boolean,
+    default: false
+  },
   chargeApplyComment: {  // ← ADD THIS FIELD
     type: String,
     default: '',
   },
 
- DueDateChangeLog:[{
+  DueDateChangeLog: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'DueDateChangeLog'
   }],
-  creator:{
-      type: mongoose.Schema.Types.ObjectId,
+  creator: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Employee',
     required: true,
   },
-  
-   paymentDetails: {
+
+  paymentDetails: {
     type: {
       razorpay_payment_id: { type: String, default: null },
       razorpay_order_id: { type: String, default: null },
@@ -361,12 +361,18 @@ isTechnicianPaymentSuccess:{
       amountPaid: { type: Number, default: null }, // Actual amount paid in ₹
       originalAmount: { type: Number, default: null }, // Full ticket price in ₹
       paymentGateway: { type: String, default: null }, // "Razorpay", "Cash", "Paytm", etc.
-      isPaymentReceived: {type: Boolean, default: false}
+      isPaymentReceived: { type: Boolean, default: false }
     },
     default: null
-  }
+  },
 
-  
+  // Spare item swap tracking
+  spareSwaps: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'DefectiveItemSwap'
+  }]
+
+
 }, {
   timestamps: true,
 });
