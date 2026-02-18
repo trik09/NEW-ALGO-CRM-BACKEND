@@ -17,6 +17,7 @@ const sendEmail = require("../utils/SendEmail");
 // const DueDateChangeLog = require("../models/DueDateChangeLog.model");
 const securityCodeModel = require("../models/securityCode.model");
 const DueDateChangeLog = require("../models/DueDateChangeLog.model");
+const DefectiveItemSwap = require("../models/defectiveItemSwap.model");
 // const {deleteFromS3 } = require('../utils/S3Utils');
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -3982,44 +3983,53 @@ const getAllTickets = async (req, res) => {
 
 
     // Due date filtering logic - exclude work done/closed tickets
-    if (dueDateFilter) {
-      const dueDateQuery = {
-        $and: [
-          { ticketStatus: { $ne: "work done" } },  // Exclude work done
-          { isTicketClosed: { $ne: true } }        // Exclude closed tickets
-        ]
-      };
-
-      switch (dueDateFilter) {
-        case "today":
-          dueDateQuery.$and.push({
-            dueDate: { $gte: todayStart, $lt: todayEnd }
-          });
-          break;
-        case "tomorrow":
-          dueDateQuery.$and.push({
-            dueDate: { $gte: tomorrowStart, $lt: tomorrowEnd }
-          });
-          break;
-        case "dayAfterTomorrow":
-          dueDateQuery.$and.push({
-            dueDate: { $gte: dayAfterStart, $lt: dayAfterEnd }
-          });
-          break;
-        case "delayed":
-          dueDateQuery.$and.push({
-            dueDate: { $lt: todayStart }
-          });
-          break;
-      }
-
-      // Merge with existing query
-      // query = { ...query, ...dueDateQuery };
-      // Merge with existing query
-      if (Object.keys(query).length > 0) {
-        query = { $and: [query, dueDateQuery] };
+    if (dueDateFilter && dueDateFilter !== 'null' && dueDateFilter !== 'undefined') {
+      if (dueDateFilter === "replaced") {
+        // Fetch all ticket IDs that have at least one swap
+        const swappedTicketIds = await DefectiveItemSwap.distinct("ticketId");
+        const replacedQuery = { _id: { $in: swappedTicketIds } };
+        if (Object.keys(query).length > 0) {
+          query = { $and: [query, replacedQuery] };
+        } else {
+          query = replacedQuery;
+        }
       } else {
-        query = dueDateQuery;
+        const dueDateQuery = {
+          $and: [
+            { ticketStatus: { $ne: "work done" } },  // Exclude work done
+            { isTicketClosed: { $ne: true } }        // Exclude closed tickets
+          ]
+        };
+
+        switch (dueDateFilter) {
+          case "today":
+            dueDateQuery.$and.push({
+              dueDate: { $gte: todayStart, $lt: todayEnd }
+            });
+            break;
+          case "tomorrow":
+            dueDateQuery.$and.push({
+              dueDate: { $gte: tomorrowStart, $lt: tomorrowEnd }
+            });
+            break;
+          case "dayAfterTomorrow":
+            dueDateQuery.$and.push({
+              dueDate: { $gte: dayAfterStart, $lt: dayAfterEnd }
+            });
+            break;
+          case "delayed":
+            dueDateQuery.$and.push({
+              dueDate: { $lt: todayStart }
+            });
+            break;
+        }
+
+        // Merge with existing query
+        if (Object.keys(query).length > 0) {
+          query = { $and: [query, dueDateQuery] };
+        } else {
+          query = dueDateQuery;
+        }
       }
     }
 
@@ -4135,7 +4145,12 @@ const getAllTickets = async (req, res) => {
           { isTicketClosed: { $ne: true } },
           { dueDate: { $lt: todayStart } }
         ]
-      })
+      }),
+
+      // Replaced tickets - tickets with at least one swap
+      DefectiveItemSwap.distinct("ticketId").then(ids =>
+        Ticket.countDocuments({ ...statsBaseFilter, _id: { $in: ids } })
+      ),
     ];
 
     const [
@@ -4145,6 +4160,7 @@ const getAllTickets = async (req, res) => {
       tomorrowCount,
       dayAfterCount,
       delayedCount,
+      replacedCount,
     ] = await Promise.all(statsQueries);
 
     // Get total count for pagination
@@ -4303,6 +4319,7 @@ const getAllTickets = async (req, res) => {
           tomorrow: tomorrowCount,
           dayAfterTomorrow: dayAfterCount,
           delayed: delayedCount,
+          replaced: replacedCount,
         },
       },
       data: tickets,

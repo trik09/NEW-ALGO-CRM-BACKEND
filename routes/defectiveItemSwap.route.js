@@ -12,6 +12,9 @@ router.get('/pending-requests', swapController.getPendingSwapRequests);
 // Query params: ticketId, vehicleNumber, technicianId
 router.get('/history', swapController.getSwapHistory);
 
+// Get which ticket IDs (from a given list) have at least one swap
+router.get('/tickets-with-swaps', swapController.getTicketsWithSwaps);
+
 // Create a swap request (technician swaps immediately)
 router.post('/create', swapController.createSwapRequest);
 

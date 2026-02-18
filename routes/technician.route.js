@@ -116,6 +116,10 @@ router.post('/bulk-update-categories', technicianController.bulkUpdateTechnician
 
 router.get("/get-tech-device-sim-accessories/:technicianId", technicianController.getTechDeviceSimAccessories);
 
+// Add accessories to a vehicle's MainData
+router.patch("/add-accessories-to-vehicle", technicianController.addAccessoriesToVehicle);
+
+
 // Get technician's spare inventory (items with status "with technician")
 router.get("/:id/spare-inventory", technicianController.getTechnicianSpareInventory);
 

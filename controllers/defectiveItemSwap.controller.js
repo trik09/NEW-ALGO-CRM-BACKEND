@@ -4,6 +4,7 @@ const SimMaster = require('../models/simMaster');
 const AccessoryMaster = require('../models/accessoryMaster');
 const Ticket = require('../models/ticket.model');
 const MainData = require('../models/mainData.model');
+const mongoose = require('mongoose');
 
 // Helper function to get the correct model based on item type
 const getItemModel = (itemType) => {
@@ -540,6 +541,38 @@ exports.getSwapHistory = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Error fetching swap history',
+            error: error.message
+        });
+    }
+};
+
+// 7. Get which ticket IDs (from a given list) have at least one swap
+exports.getTicketsWithSwaps = async (req, res) => {
+    try {
+        const { ticketIds } = req.query;
+        if (!ticketIds) {
+            return res.status(400).json({ success: false, message: 'ticketIds query param required' });
+        }
+
+        const ids = ticketIds.split(',').filter(id => mongoose.Types.ObjectId.isValid(id));
+        if (ids.length === 0) {
+            return res.status(200).json({ success: true, data: [] });
+        }
+
+        // Distinct ticketIds that have at least one swap record
+        const swappedIds = await DefectiveItemSwap.distinct('ticketId', {
+            ticketId: { $in: ids }
+        });
+
+        return res.status(200).json({
+            success: true,
+            data: swappedIds.map(id => id.toString())
+        });
+    } catch (error) {
+        console.error('Error fetching tickets with swaps:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error fetching tickets with swaps',
             error: error.message
         });
     }
