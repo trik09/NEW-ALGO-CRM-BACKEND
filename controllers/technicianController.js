@@ -7,6 +7,10 @@ const mongoose = require("mongoose");
 const dayjs = require("dayjs");
 
 const securityCodeModel = require("../models/securityCode.model");
+const DeviceMaster = require("../models/deviceMaster");
+const SimMaster = require("../models/simMaster");
+const AccessoryMaster = require("../models/accessoryMaster");
+const MainData = require("../models/mainData.model");
 
 exports.getAllTechnicians = async (req, res) => {
   try {
@@ -2572,3 +2576,251 @@ exports.VerifySecurityCodeOfTechnicianInFileUpload = async (req, res) => {
     });
   }
 }
+
+
+
+exports.getTechDeviceSimAccessories = async (req, res) => {
+  try {
+    const { technicianId } = req.params;
+    console.log("Technician id : ", technicianId);
+
+    // Validate technicianId
+    if (!mongoose.Types.ObjectId.isValid(technicianId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid technician ID format",
+      });
+    }
+
+    // Verify technician exists
+    const technician = await Technician.findById(technicianId);
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician not found",
+      });
+    }
+
+    // Use Promise.all to fetch devices, sims, and accessories in parallel
+    const [devices, sims, accessories] = await Promise.all([
+      DeviceMaster.find({
+        status: "with technician",
+        assignedTo: technicianId
+      }).lean().select('-statusHistory'),
+
+      SimMaster.find({
+        status: "with technician",
+        assignedTo: technicianId
+      }).lean().select('-statusHistory'),
+
+      AccessoryMaster.find({
+        status: "with technician",
+        assignedTo: technicianId
+      }).lean().select('-statusHistory')
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Technician inventory retrieved successfully",
+      data: {
+        technician: {
+          id: technician._id,
+          name: technician.name,
+          nickName: technician.nickName,
+        },
+        inventory: {
+          devices: devices,
+          sims: sims,
+          accessories: accessories,
+        },
+        counts: {
+          totalDevices: devices.length,
+          totalSims: sims.length,
+          totalAccessories: accessories.length,
+          totalItems: devices.length + sims.length + accessories.length,
+        }
+      },
+    });
+
+  } catch (error) {
+    console.error("Error fetching technician device sim accessories:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+}
+
+// Get technician's spare inventory (items with status "with technician")
+exports.getTechnicianSpareInventory = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Query each master collection for items with status "with technician" assigned to this technician
+    const [devices, sims, accessories] = await Promise.all([
+      DeviceMaster.find({
+        status: 'with technician',
+        assignedTo: id,
+        assignedToModel: 'Technician',
+        isDefective: { $ne: true } // Exclude already defective items
+      }).lean(),
+
+      SimMaster.find({
+        status: 'with technician',
+        assignedTo: id,
+        assignedToModel: 'Technician',
+        isDefective: { $ne: true }
+      }).lean(),
+
+      AccessoryMaster.find({
+        status: 'with technician',
+        assignedTo: id,
+        assignedToModel: 'Technician',
+        isDefective: { $ne: true }
+      }).lean()
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Spare inventory retrieved successfully',
+      data: {
+        devices,
+        sims,
+        accessories,
+        summary: {
+          totalDevices: devices.length,
+          totalSims: sims.length,
+          totalAccessories: accessories.length,
+          totalSpares: devices.length + sims.length + accessories.length
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching technician spare inventory:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching spare inventory',
+      error: error.message
+    });
+  }
+};
+
+// Add accessories to a vehicle's MainData
+exports.addAccessoriesToVehicle = async (req, res) => {
+  try {
+    const { vehicleNumber, accessoryIds, ticketId, technicianId } = req.body;
+
+    if (!vehicleNumber || !Array.isArray(accessoryIds) || accessoryIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "vehicleNumber and at least one accessoryId are required",
+      });
+    }
+
+    if (!ticketId) {
+      return res.status(400).json({
+        success: false,
+        message: "ticketId is required",
+      });
+    }
+
+    // Validate all IDs are valid ObjectIds
+    const validIds = accessoryIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+    if (validIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid accessory IDs provided",
+      });
+    }
+
+    // Fetch ticket to get customer info
+    const ticket = await Ticket.findById(ticketId).populate("qstClientName", "companyName");
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: "Ticket not found",
+      });
+    }
+
+    // Find MainData for this vehicle
+    const mainData = await MainData.findOne({ registrationNumber: vehicleNumber });
+
+    console.log("main data for accessories addition : ", mainData);
+    if (!mainData) {
+      return res.status(404).json({
+        success: false,
+        message: `No MainData found for vehicle number: ${vehicleNumber}`,
+      });
+    }
+
+    // Get customer assignment info from ticket
+    const customerId = ticket.qstClientName?._id || ticket.qstClientName;
+    const customerName = ticket.qstClientName?.companyName || "";
+
+    // Update each accessory: status → 'sold to customer', assign to customer
+    const accessoryObjectIds = validIds.map((id) => new mongoose.Types.ObjectId(id));
+
+    await AccessoryMaster.updateMany(
+      { _id: { $in: accessoryObjectIds } },
+      {
+        $set: {
+          status: "sold to customer",
+          assignedTo: customerId,
+          assignedToModel: "QstClient",
+          customerName: customerName,
+        },
+        $push: {
+          statusHistory: {
+            status: "sold to customer",
+            changedAt: new Date(),
+            changedBy: `Technician ${technicianId || "unknown"} - Installed on ${vehicleNumber}`,
+          },
+        },
+      }
+    );
+
+    // Push accessory IDs into MainData.accessoryDetails (avoid duplicates)
+    // Note: $addToSet won't add an ID that already exists in the array
+    const existingIds = mainData.accessoryDetails.map((id) => id.toString());
+    const newIds = accessoryObjectIds.filter((id) => !existingIds.includes(id.toString()));
+
+    console.log("Existing accessoryDetails IDs:", existingIds);
+    console.log("Requested accessoryIds:", accessoryObjectIds.map(id => id.toString()));
+    console.log("New IDs to add (not already present):", newIds.map(id => id.toString()));
+
+    if (newIds.length === 0) {
+      // All requested accessories are already in the vehicle — still return current state
+      const current = await MainData.findById(mainData._id).populate("accessoryDetails", "-statusHistory -__v");
+      return res.status(200).json({
+        success: true,
+        message: "All selected accessories were already linked to this vehicle",
+        data: current,
+      });
+    }
+
+    await MainData.findByIdAndUpdate(
+      mainData._id,
+      { $push: { accessoryDetails: { $each: newIds } } },
+      { new: true }
+    );
+
+    // Fetch fresh populated document (chaining .populate() on findByIdAndUpdate is unreliable)
+    const updated = await MainData.findById(mainData._id).populate("accessoryDetails", "-statusHistory -__v");
+
+    console.log(`Added ${newIds.length} new accessories to vehicle ${vehicleNumber}, total now: ${updated.accessoryDetails?.length}`);
+
+    return res.status(200).json({
+      success: true,
+      message: "Accessories added successfully",
+      data: updated,
+    });
+  } catch (error) {
+    console.error("Error adding accessories to vehicle:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};

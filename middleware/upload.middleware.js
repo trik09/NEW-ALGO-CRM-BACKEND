@@ -40,7 +40,7 @@ const multerErrorHandler = (err, req, res, next) => {
       // Multer error (file size, too many files, etc.)
       return res.status(400).json({
         success: false,
-        message: err.code === 'LIMIT_FILE_SIZE' 
+        message: err.code === 'LIMIT_FILE_SIZE'
           ? 'File size too large. Max 2MB allowed.'
           : err.message
       });
@@ -60,7 +60,11 @@ const multerErrorHandler = (err, req, res, next) => {
   next();
 };
 
+// Middleware for defect images (up to 5)
+const uploadDefectImages = upload.array('defectImages', 5);
+
 module.exports = {
   uploadEmployeeDocuments,
+  uploadDefectImages,
   multerErrorHandler
 };
