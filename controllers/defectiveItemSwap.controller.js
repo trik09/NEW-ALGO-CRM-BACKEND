@@ -4,7 +4,34 @@ const SimMaster = require('../models/simMaster');
 const AccessoryMaster = require('../models/accessoryMaster');
 const Ticket = require('../models/ticket.model');
 const MainData = require('../models/mainData.model');
+const Employee = require('../models/employee.model');
 const mongoose = require('mongoose');
+const AWS = require('aws-sdk');
+
+const s3 = new AWS.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION,
+});
+
+// Helper function to upload file to S3
+const uploadToS3 = async (file, folder) => {
+    if (!file) return null;
+
+    const fileExtension = file.originalname.split(".").pop();
+    const timestamp = Date.now();
+    const key = `${folder}/${timestamp}.${fileExtension}`;
+
+    const params = {
+        Bucket: process.env.AWS_S3_BUCKET_NAME,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+    };
+
+    const data = await s3.upload(params).promise();
+    return data.Location;
+};
 
 // Helper function to get the correct model based on item type
 const getItemModel = (itemType) => {
@@ -83,6 +110,9 @@ exports.getAvailableSpareItems = async (req, res) => {
 
 // 2. Create swap request - Technician swaps immediately
 exports.createSwapRequest = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
         const {
             ticketId,
@@ -91,13 +121,21 @@ exports.createSwapRequest = async (req, res) => {
             itemType,
             defectiveItemId,
             spareItemId,
-            defectDescription,
-            defectImages = []
+            defectDescription
         } = req.body;
+
+        // Process images if any (S3 upload remains outside the transaction but before the commit)
+        let defectImages = [];
+        if (req.files && req.files.length > 0) {
+            const uploadPromises = req.files.map(file => uploadToS3(file, 'defectImages'));
+            defectImages = await Promise.all(uploadPromises);
+        }
 
         // Validate required fields
         if (!ticketId || !vehicleNumber || !technicianId || !itemType ||
             !defectiveItemId || !spareItemId || !defectDescription) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(400).json({
                 success: false,
                 message: 'Missing required fields'
@@ -105,8 +143,10 @@ exports.createSwapRequest = async (req, res) => {
         }
 
         // Validate ticket exists and get task type
-        const ticket = await Ticket.findById(ticketId).populate('taskType');
+        const ticket = await Ticket.findById(ticketId).populate('taskType').session(session);
         if (!ticket) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(404).json({
                 success: false,
                 message: 'Ticket not found'
@@ -116,6 +156,8 @@ exports.createSwapRequest = async (req, res) => {
         // Check if task type is not "installation"
         const taskTypeName = ticket.taskType?.taskName || ticket.taskTypeString || '';
         if (taskTypeName.toLowerCase() === 'installation') {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(403).json({
                 success: false,
                 message: 'Swap feature not available for installation tasks'
@@ -125,6 +167,8 @@ exports.createSwapRequest = async (req, res) => {
         // Validate vehicleNumber exists in ticket
         const vehicleExists = ticket.vehicleNumbers.some(v => v.vehicleNumber === vehicleNumber);
         if (!vehicleExists) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(400).json({
                 success: false,
                 message: 'Vehicle number not found in ticket'
@@ -139,9 +183,11 @@ exports.createSwapRequest = async (req, res) => {
             _id: spareItemId,
             status: 'with technician',
             assignedTo: technicianId
-        });
+        }).session(session);
 
         if (!spareItem) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(404).json({
                 success: false,
                 message: 'Spare item not found or not available'
@@ -149,8 +195,10 @@ exports.createSwapRequest = async (req, res) => {
         }
 
         // Validate defective item exists
-        const defectiveItem = await ItemModel.findById(defectiveItemId);
+        const defectiveItem = await ItemModel.findById(defectiveItemId).session(session);
         if (!defectiveItem) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(404).json({
                 success: false,
                 message: 'Defective item not found'
@@ -179,7 +227,7 @@ exports.createSwapRequest = async (req, res) => {
             cseApprovalStatus: 'pending'
         });
 
-        await swap.save();
+        await swap.save({ session });
 
         // Get customer assignment from TICKET (not defective item which might have null)
         const customerAssignment = ticket.qstClientName?._id || ticket.qstClientName;
@@ -199,7 +247,7 @@ exports.createSwapRequest = async (req, res) => {
             });
         }
 
-        await spareItem.save();
+        await spareItem.save({ session });
 
         // STEP 2: Update defective item - mark as defective, assign to technician
         defectiveItem.status = 'with technician';
@@ -218,28 +266,14 @@ exports.createSwapRequest = async (req, res) => {
             });
         }
 
-        await defectiveItem.save();
+        await defectiveItem.save({ session });
 
-        // STEP 3: Extract mainDataId safely (works whether populated or not)
-        const vehicleIndex = ticket.vehicleNumbers.findIndex(v => v.vehicleNumber === vehicleNumber);
-        if (vehicleIndex === -1) {
-            return res.status(400).json({
-                success: false,
-                message: "Vehicle not found in ticket"
-            });
-        }
-
-        console.log("vehicleIndex", vehicleIndex);
-        console.log("vehicle Number according to index : ", ticket.vehicleNumbers[vehicleIndex]);
-        console.log("All Vehicles in ticket : ", ticket.vehicleNumbers);
-
-        // mainData is NOT stored in the ticket's vehicleNumbers subdocument.
-        // It is computed on-the-fly via aggregation in getParticularActiveAssignedTicket.
-        // So we look it up directly from MainData collection by registrationNumber.
-        const mainDataDoc = await MainData.findOne({ registrationNumber: vehicleNumber });
-        console.log("mainDataDoc found:", mainDataDoc?._id);
+        // STEP 3: Look up directly from MainData collection by registrationNumber
+        const mainDataDoc = await MainData.findOne({ registrationNumber: vehicleNumber }).session(session);
 
         if (!mainDataDoc) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(400).json({
                 success: false,
                 message: "MainData not found for this vehicle number"
@@ -248,47 +282,47 @@ exports.createSwapRequest = async (req, res) => {
 
         const mainDataId = mainDataDoc._id;
 
-        // STEP 4: Update MainData in DB (THE REAL SWAP - using ObjectIds not full objects)
-        try {
-            if (itemType === "device") {
-                await MainData.updateOne(
-                    { _id: mainDataId },
-                    { $set: { deviceDetails: spareItem._id } }
-                );
-            } else if (itemType === "sim") {
-                await MainData.updateOne(
-                    { _id: mainDataId },
-                    { $set: { simDetails: spareItem._id } }
-                );
-            } else if (itemType === "accessory") {
-                // Replace in-place using positional operator (keeps same index)
-                const result = await MainData.updateOne(
-                    { _id: mainDataId, accessoryDetails: defectiveItem._id },
-                    { $set: { "accessoryDetails.$": spareItem._id } }
-                );
+        // STEP 4: Update MainData in DB (THE REAL SWAP)
+        if (itemType === "device") {
+            await MainData.updateOne(
+                { _id: mainDataId },
+                { $set: { deviceDetails: spareItem._id } },
+                { session }
+            );
+        } else if (itemType === "sim") {
+            await MainData.updateOne(
+                { _id: mainDataId },
+                { $set: { simDetails: spareItem._id } },
+                { session }
+            );
+        } else if (itemType === "accessory") {
+            // Replace in-place using positional operator (keeps same index)
+            const result = await MainData.updateOne(
+                { _id: mainDataId, accessoryDetails: defectiveItem._id },
+                { $set: { "accessoryDetails.$": spareItem._id } },
+                { session }
+            );
 
-                if (result.matchedCount === 0) {
-                    return res.status(400).json({
-                        success: false,
-                        message: "Defective accessory not found in this vehicle's MainData"
-                    });
-                }
+            if (result.matchedCount === 0) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({
+                    success: false,
+                    message: "Defective accessory not found in this vehicle's MainData"
+                });
             }
-        } catch (error) {
-            console.error('Error updating MainData:', error);
-            return res.status(500).json({
-                success: false,
-                message: 'Failed to update Store Data (MainData)',
-                error: error.message
-            });
         }
 
         // Add swap reference to ticket
         ticket.spareSwaps = ticket.spareSwaps || [];
         ticket.spareSwaps.push(swap._id);
-        await ticket.save();
+        await ticket.save({ session });
 
-        // Populate the swap for response
+        // Commit the transaction
+        await session.commitTransaction();
+        session.endSession();
+
+        // Populate the swap for response (after commit)
         const populatedSwap = await DefectiveItemSwap.findById(swap._id)
             .populate('technicianId', 'name email')
             .populate('ticketId', 'ticketSKUId')
@@ -301,6 +335,10 @@ exports.createSwapRequest = async (req, res) => {
             data: populatedSwap
         });
     } catch (error) {
+        // If an error occurs, abort the transaction
+        await session.abortTransaction();
+        session.endSession();
+
         console.error('Error creating swap request:', error);
         return res.status(500).json({
             success: false,
@@ -309,6 +347,7 @@ exports.createSwapRequest = async (req, res) => {
         });
     }
 };
+
 
 // 3. Get pending swap requests for CSE review
 exports.getPendingSwapRequests = async (req, res) => {
@@ -376,12 +415,19 @@ exports.approveSwapRequest = async (req, res) => {
         defectiveItem.assignedTo = cseId;
         defectiveItem.assignedToModel = 'Employee';
 
+        const cse = await Employee.findById(cseId);
+        const cseName = cse ? cse.name : 'Unknown CSE';
+
+        if ('assignedToName' in defectiveItem || defectiveItem.assignedToName !== undefined) {
+            defectiveItem.assignedToName = cseName;
+        }
+
         // Add to status history
         if (defectiveItem.statusHistory) {
             defectiveItem.statusHistory.push({
                 status: 'with cse',
                 changedAt: new Date(),
-                changedBy: `CSE ${cseId} - Defect Approved`
+                changedBy: `CSE ${cseName} - Defect Approved`
             });
         }
 

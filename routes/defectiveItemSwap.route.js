@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const swapController = require('../controllers/defectiveItemSwap.controller');
+const { uploadDefectImages, multerErrorHandler } = require('../middleware/upload.middleware');
 
 // Get available spare items for a technician
 router.get('/available-spares/:technicianId', swapController.getAvailableSpareItems);
@@ -16,7 +17,7 @@ router.get('/history', swapController.getSwapHistory);
 router.get('/tickets-with-swaps', swapController.getTicketsWithSwaps);
 
 // Create a swap request (technician swaps immediately)
-router.post('/create', swapController.createSwapRequest);
+router.post('/create', uploadDefectImages, multerErrorHandler, swapController.createSwapRequest);
 
 // CSE approves swap request (defective item goes to CSE)
 router.put('/approve/:swapId', swapController.approveSwapRequest);
