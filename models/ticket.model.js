@@ -370,8 +370,22 @@ const ticketSchema = new mongoose.Schema({
   spareSwaps: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'DefectiveItemSwap'
-  }]
+  }],
 
+  softCloseByTechnician: {
+    type: Boolean,
+    default: false
+  },
+
+  softCloseByTechnicianDate: {
+    type: Date,
+    default: null
+  },
+
+  softCloseByTechnicianComment: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TicketCloser',
+  },
 
 }, {
   timestamps: true,

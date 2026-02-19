@@ -3993,6 +3993,8 @@ const getAllTickets = async (req, res) => {
         } else {
           query = replacedQuery;
         }
+      } else if (dueDateFilter === "softClose") {
+        query.softCloseByTechnician = true;
       } else {
         const dueDateQuery = {
           $and: [
@@ -4151,6 +4153,9 @@ const getAllTickets = async (req, res) => {
       DefectiveItemSwap.distinct("ticketId").then(ids =>
         Ticket.countDocuments({ ...statsBaseFilter, _id: { $in: ids } })
       ),
+
+      // Soft Close tickets
+      Ticket.countDocuments({ ...statsBaseFilter, softCloseByTechnician: true }),
     ];
 
     const [
@@ -4161,6 +4166,7 @@ const getAllTickets = async (req, res) => {
       dayAfterCount,
       delayedCount,
       replacedCount,
+      softCloseCount,
     ] = await Promise.all(statsQueries);
 
     // Get total count for pagination
@@ -4190,6 +4196,7 @@ const getAllTickets = async (req, res) => {
       .populate("technician", "name nickName beneficiaryId")
       .populate("creator", "name")
       .populate("qstProjectID", "projectName _id")
+      .populate("softCloseByTechnicianComment")
       // .populate("issueFoundRef", "issueFoundName")
       // .populate("resolutionRef", "ResolutionName")
       .sort(sortCriteria) // Use the dynamic sort criteria
@@ -4320,6 +4327,7 @@ const getAllTickets = async (req, res) => {
           dayAfterTomorrow: dayAfterCount,
           delayed: delayedCount,
           replaced: replacedCount,
+          softClose: softCloseCount,
         },
       },
       data: tickets,
@@ -12174,6 +12182,57 @@ async function getTicketsByAvailabilityRange(req, res) {
 
 
 
+
+const softCloseTicket = async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const { status, reason } = req.body; // reason should be the _id of the TicketCloser reason
+
+    if (!ticketId) {
+      return res.status(400).json({ success: false, message: "Ticket ID is required" });
+    }
+
+    if (status !== "Work Done" && status !== "Work Not Done") {
+      return res.status(400).json({ success: false, message: "Invalid status" });
+    }
+
+    const updateData = {
+      softCloseByTechnician: true,
+      softCloseByTechnicianDate: new Date(),
+    };
+
+    if (status === "Work Not Done") {
+      if (!reason) {
+        return res.status(400).json({ success: false, message: "Reason is required for Work Not Done" });
+      }
+      updateData.softCloseByTechnicianComment = reason;
+    } else {
+      updateData.softCloseByTechnicianComment = null;
+    }
+
+    const updatedTicket = await Ticket.findByIdAndUpdate(
+      ticketId,
+      updateData,
+      { new: true }
+    );
+
+    if (!updatedTicket) {
+      return res.status(404).json({ success: false, message: "Ticket not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Ticket soft closed successfully",
+      data: updatedTicket,
+    });
+
+  } catch (error) {
+    console.error("Error soft closing ticket:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+
 module.exports = {
   getAllTickets,
   createTicket,
@@ -12211,5 +12270,6 @@ module.exports = {
   getDeletedLogsByTicketId,
   getTechnicianMargins,
   getTicketsByAvailabilityRange,
-  ExportCanceledTicketDataByDateRange
+  ExportCanceledTicketDataByDateRange,
+  softCloseTicket
 };
