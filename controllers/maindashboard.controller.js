@@ -1965,7 +1965,7 @@ const getVehicalsData = async (req, res) => {
     const vehiclesPlannedAgg = await Ticket.aggregate([
       {
         $match: {
-          dueDate: { $ne: null, $gt: now },
+          dueDate: { $ne: null, $gte: todayStart },
           ticketStatus: { $ne: "work done" },
           isTicketClosed: false,
         },
