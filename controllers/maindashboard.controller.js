@@ -2466,6 +2466,12 @@ const getDateRangesForPayrollTechniciansData = () => {
     thisMonthEnd,
     lastMonthStart,
     lastMonthEnd,
+    lastToLastMonthStart: new Date(
+      today.getFullYear(),
+      today.getMonth() - 2,
+      1,
+    ),
+    lastToLastMonthEnd: new Date(today.getFullYear(), today.getMonth() - 1, 0),
   };
 };
 
@@ -2495,7 +2501,7 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
           technician: { $in: techIds },
           ticketStatus: "work done",
           ticketAvailabilityDate: {
-            $gte: dateRanges.lastMonthStart,
+            $gte: dateRanges.lastToLastMonthStart,
             $lte: dateRanges.thisMonthEnd,
           },
         },
@@ -2529,6 +2535,7 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
 
     let totalThisMonthCalls = 0;
     let totalLastMonthCalls = 0;
+    let totalLastToLastMonthCalls = 0;
 
     // ===============================
     // PROCESS DATA
@@ -2578,6 +2585,14 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
         techObj.lastMonth += vehicles;
         totalLastMonthCalls += vehicles;
       }
+
+      // ---- LAST TO LAST MONTH
+      if (
+        date >= dateRanges.lastToLastMonthStart &&
+        date <= dateRanges.lastToLastMonthEnd
+      ) {
+        totalLastToLastMonthCalls += vehicles;
+      }
     });
 
     const result = Object.values(resultMap);
@@ -2610,6 +2625,23 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
           ).toFixed(2)
         : 0;
 
+    // total days in last to last month
+    const lastToLastMonthDate = new Date(
+      today.getFullYear(),
+      today.getMonth() - 1,
+      0,
+    );
+    const totalDaysInLastToLastMonth = lastToLastMonthDate.getDate();
+
+    const lastToLastMonthProductivity =
+      noOfPayrollTechs && totalDaysInLastToLastMonth
+        ? +(
+            totalLastToLastMonthCalls /
+            noOfPayrollTechs /
+            totalDaysInLastToLastMonth
+          ).toFixed(2)
+        : 0;
+
     // ===============================
     // FINAL RESPONSE
     // ===============================
@@ -2619,9 +2651,12 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
       productivity: {
         thisMonth: thisMonthProductivity,
         lastMonth: lastMonthProductivity,
+        lastToLastMonth: lastToLastMonthProductivity,
         meta: {
           totalThisMonthCalls,
           totalLastMonthCalls,
+          totalLastToLastMonthCalls,
+
           noOfPayrollTechs,
           daysTillToday,
           totalDaysInLastMonth,
