@@ -558,7 +558,7 @@ exports.getSwapHistory = async (req, res) => {
 
         const swaps = await DefectiveItemSwap.find(filter)
             .populate('technicianId', 'name email mobile')
-            .populate('ticketId', 'ticketSKUId qstClientNameString location')
+            .populate('ticketId', 'ticketSKUId qstClientNameString location softCloseByTechnician softCloseByTechnicianComment')
             .populate('cseId', 'name')
             .populate('defectiveItemId')
             .populate('spareItemId')
