@@ -64,4 +64,11 @@ router.get(
   maindashboardcontroller.getZoneCompletionMonth
 );
 
+router.get(
+  "/performance-ratio-fy",
+  isAuthenticated,
+  authorizeRoles("superAdmin", "admin"),
+  maindashboardcontroller.getPerformanceRatioFY
+);
+
 module.exports = router;

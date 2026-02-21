@@ -4,6 +4,7 @@ const Technician = require("../models/technician.model");
 const Employee = require("../models/employee.model");
 const MonthlyMargin = require("../models/MonthlyMargin.model");
 const Task = require("../models/task.model");
+const MainData = require("../models/mainData.model");
 
 // Helper functions
 const getDateRanges = () => {
@@ -307,6 +308,12 @@ const getKeyClientStats = async (req, res) => {
   // Total Vehicles in FY
   // ​
 
+  // 0. Get "Installation" task ID
+  const installationTask = await Task.findOne({
+    taskName: { $regex: /^installation$/i },
+  });
+  const installationTaskId = installationTask ? installationTask._id : null;
+
   // === Fetch Key Clients Aggregation ===
   const keyClientPipeline = [
     {
@@ -326,6 +333,7 @@ const getKeyClientStats = async (req, res) => {
                   { $eq: ["$qstClientName", "$$clientId"] },
                   { $eq: ["$ticketStatus", "work done"] },
                   { $eq: [{ $type: "$technician" }, "objectId"] },
+                  { $ne: ["$taskType", installationTaskId] },
                   { $gte: ["$ticketAvailabilityDate", financialYearStart] },
                   { $lte: ["$ticketAvailabilityDate", today] },
                 ],
@@ -508,11 +516,28 @@ const getKeyClientStats = async (req, res) => {
           $sum: "$fyTickets.totalCustomerCharges",
         },
         ticketCountFY: { $size: "$fyTickets" },
-
+      },
+    },
+    // 🔥 NEW: Fleet Size and Performance Ratio
+    {
+      $lookup: {
+        from: "maindatas",
+        localField: "_id",
+        foreignField: "company",
+        as: "fleet",
+      },
+    },
+    {
+      $addFields: {
+        totalFleetSize: { $size: "$fleet" },
+      },
+    },
+    {
+      $addFields: {
         avgVehiclesPerMonthFY: {
           $cond: [
-            { $gt: [monthsElapsedInFY, 0] },
-            { $divide: ["$totalVehiclesFY", monthsElapsedInFY] },
+            { $gt: ["$totalFleetSize", 0] },
+            { $divide: ["$totalVehiclesFY", "$totalFleetSize"] },
             0,
           ],
         },
@@ -595,6 +620,7 @@ const getKeyClientStats = async (req, res) => {
         "tickets.ticketStatus": "work done",
         //  'tickets.technician': { $ne: null }  // ← ADD THIS LINE
         "tickets.technician": { $type: "objectId" },
+        "tickets.taskType": { $ne: installationTaskId },
       },
     },
     {
@@ -890,11 +916,36 @@ const getKeyClientStats = async (req, res) => {
       },
     },
     {
+      $lookup: {
+        from: "qstclients",
+        pipeline: [{ $match: { keyClient: true } }, { $project: { _id: 1 } }],
+        as: "allKeyClients",
+      },
+    },
+    {
+      $lookup: {
+        from: "maindatas",
+        let: { clientIds: "$allKeyClients._id" },
+        pipeline: [
+          { $match: { $expr: { $in: ["$company", "$$clientIds"] } } },
+          { $count: "count" },
+        ],
+        as: "fleetSize",
+      },
+    },
+    {
+      $addFields: {
+        totalFleetSizeCombined: {
+          $ifNull: [{ $arrayElemAt: ["$fleetSize.count", 0] }, 0],
+        },
+      },
+    },
+    {
       $addFields: {
         avgVehiclesPerMonthFY: {
           $cond: [
-            { $gt: [monthsElapsedInFY, 0] },
-            { $divide: ["$totalVehiclesFY", monthsElapsedInFY] },
+            { $gt: ["$totalFleetSizeCombined", 0] },
+            { $divide: ["$totalVehiclesFY", "$totalFleetSizeCombined"] },
             0,
           ],
         },
@@ -956,11 +1007,6 @@ const getKeyClientStats = async (req, res) => {
   ];
 
   // === Fetch Key Client Vehicles Summary (Work Done && Task != Installation) ===
-  const installationTask = await Task.findOne({
-    taskName: { $regex: /^installation$/i },
-  });
-  const installationTaskId = installationTask ? installationTask._id : null;
-
   const keyClientSummaryPipeline = [
     { $match: { keyClient: true } },
     {
@@ -1639,13 +1685,13 @@ const getTechnicianStats = async (req, res) => {
     console.log(
       "TECHNICIAN DEBUG - Through aggregation:",
       lastMonthTotal.vehiclesByPayrollTechnicians +
-        lastMonthTotal.vehiclesByFreelanceTechnicians,
+      lastMonthTotal.vehiclesByFreelanceTechnicians,
     );
     console.log(
       "TECHNICIAN DEBUG - Through aggregation:",
       lastMonthTotal.vehiclesByPayrollTechnicians +
-        lastMonthTotal.vehiclesByFreelanceTechnicians +
-        (lastMonthTotal.vehiclesByUnknownTechnicians || 0),
+      lastMonthTotal.vehiclesByFreelanceTechnicians +
+      (lastMonthTotal.vehiclesByUnknownTechnicians || 0),
     );
 
     const debugDates = () => {
@@ -2619,10 +2665,10 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
     const lastMonthProductivity =
       noOfPayrollTechs && totalDaysInLastMonth
         ? +(
-            totalLastMonthCalls /
-            noOfPayrollTechs /
-            totalDaysInLastMonth
-          ).toFixed(2)
+          totalLastMonthCalls /
+          noOfPayrollTechs /
+          totalDaysInLastMonth
+        ).toFixed(2)
         : 0;
 
     // total days in last to last month
@@ -2636,10 +2682,10 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
     const lastToLastMonthProductivity =
       noOfPayrollTechs && totalDaysInLastToLastMonth
         ? +(
-            totalLastToLastMonthCalls /
-            noOfPayrollTechs /
-            totalDaysInLastToLastMonth
-          ).toFixed(2)
+          totalLastToLastMonthCalls /
+          noOfPayrollTechs /
+          totalDaysInLastToLastMonth
+        ).toFixed(2)
         : 0;
 
     // ===============================
@@ -3090,6 +3136,125 @@ const getZoneCompletionMonth = async (req, res) => {
   }
 };
 
+const getPerformanceRatioFY = async (req, res) => {
+  try {
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0-11
+    const currentYear = now.getFullYear();
+
+    // Financial year starts in April (3)
+    let startYear = currentMonth < 3 ? currentYear - 1 : currentYear;
+    const fyStart = new Date(startYear, 3, 1); // April 1st
+
+    // 1. Get Key Clients
+    const keyClients = await QstClient.find({ keyClient: true }).select("_id");
+    const keyClientIds = keyClients.map((c) => c._id);
+
+    if (keyClientIds.length === 0) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    // 2. Get "Installation" task ID
+    const installationTask = await Task.findOne({
+      taskName: { $regex: /^installation$/i },
+    });
+    const installationTaskId = installationTask ? installationTask._id : null;
+
+    // 3. Get Total Vehicles for Key Clients (Fleet size)
+    const totalVehiclesCount = await MainData.countDocuments({
+      company: { $in: keyClientIds },
+    });
+
+    // 4. Aggregate monthly ticket performance
+    const performanceData = await Ticket.aggregate([
+      {
+        $match: {
+          qstClientName: { $in: keyClientIds },
+          ticketStatus: "work done",
+          isTicketClosed: true,
+          taskType: { $ne: installationTaskId },
+          ticketAvailabilityDate: { $gte: fyStart, $lte: now },
+        },
+      },
+      {
+        $group: {
+          _id: { $month: "$ticketAvailabilityDate" },
+          workDoneVehicles: {
+            $sum: {
+              $cond: [
+                { $gt: ["$noOfVehicles", 0] },
+                "$noOfVehicles",
+                { $size: { $ifNull: ["$vehicleNumbers", []] } },
+              ],
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          month: "$_id",
+          workDoneVehicles: 1,
+          totalVehicles: { $literal: totalVehiclesCount },
+          ratio: {
+            $cond: [
+              { $gt: [totalVehiclesCount, 0] },
+              { $divide: ["$workDoneVehicles", totalVehiclesCount] },
+              0,
+            ],
+          },
+        },
+      },
+      { $sort: { month: 1 } },
+    ]);
+
+    // Format the response to include all months in the FY up to current
+    const monthsName = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    // Financial year months order (April to March)
+    const fyMonthsOrder = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
+
+    // We only want months up to 'now'
+    const nowMonth = now.getMonth() + 1;
+    const currentFYMonths = [];
+    for (const m of fyMonthsOrder) {
+      currentFYMonths.push(m);
+      if (m === nowMonth) break;
+    }
+
+    const result = currentFYMonths.map((m) => {
+      const data = performanceData.find((d) => d.month === m);
+      return {
+        month: monthsName[m - 1],
+        monthIndex: m,
+        workDoneVehicles: data ? data.workDoneVehicles : 0,
+        totalVehicles: totalVehiclesCount,
+        ratio: data ? data.ratio : 0,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error in getPerformanceRatioFY:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getKeyClientStats,
@@ -3107,4 +3272,5 @@ module.exports = {
   getOpenTicketsQty3Count,
   getOpenTicketsQty3Details,
   getZoneCompletionMonth,
+  getPerformanceRatioFY,
 };
