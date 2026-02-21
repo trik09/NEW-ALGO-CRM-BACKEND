@@ -2526,7 +2526,7 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
   try {
     const payrollTechnicians = await Technician.find({
       technicianCategoryType: "payroll",
-    }).select("_id name nickName");
+    }).select("_id name nickName salary");
 
     if (!payrollTechnicians.length) {
       return res.status(404).json({
@@ -2681,12 +2681,38 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
 
     const lastToLastMonthProductivity =
       noOfPayrollTechs && totalDaysInLastToLastMonth
-        ? +(
+        ? + (
           totalLastToLastMonthCalls /
           noOfPayrollTechs /
           totalDaysInLastToLastMonth
         ).toFixed(2)
         : 0;
+
+    // ===============================
+    // AVERAGE COST PER VISIT CALCULATION
+    // ===============================
+    // total days in current month (for MTD proration)
+    const currentMonthEndDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const totalDaysInCurrentMonth = currentMonthEndDate.getDate();
+
+    const totalMonthlySalary = payrollTechnicians.reduce((sum, tech) => sum + (tech.salary || 0), 0);
+
+    // MTD Payroll Cost for current month
+    const mtdPayrollCost = totalMonthlySalary * (daysTillToday / totalDaysInCurrentMonth);
+
+    const averageCost = {
+      thisMonth: totalThisMonthCalls > 0 ? +(mtdPayrollCost / totalThisMonthCalls).toFixed(2) : 0,
+      lastMonth: totalLastMonthCalls > 0 ? +(totalMonthlySalary / totalLastMonthCalls).toFixed(2) : 0,
+      lastToLastMonth: totalLastToLastMonthCalls > 0 ? +(totalMonthlySalary / totalLastToLastMonthCalls).toFixed(2) : 0,
+      meta: {
+        totalMonthlySalary,
+        mtdPayrollCost,
+        daysTillToday,
+        totalDaysInCurrentMonth,
+        totalDaysInLastMonth,
+        totalDaysInLastToLastMonth
+      }
+    };
 
     // ===============================
     // FINAL RESPONSE
@@ -2708,6 +2734,7 @@ const getPayrollTechniciansVehicleCountsForDashboard = async (req, res) => {
           totalDaysInLastMonth,
         },
       },
+      averageCost,
     });
   } catch (error) {
     console.error("Error fetching payroll technicians vehicle counts:", error);
