@@ -117,7 +117,12 @@ const ticketSchema = new mongoose.Schema({
       isResinstalationTypeNewVehicalNumber: {
         type: Boolean,
         default: false
-      } // this line ensure that , this ticket combination of old new vehical type
+      }, // this line ensure that , this ticket combination of old new vehical type
+
+      isDone: {
+        type: Boolean,
+        default: false
+      } // technician marks this vehicle as done (work completed on-site)
 
     }
   ],

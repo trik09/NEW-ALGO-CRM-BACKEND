@@ -1561,7 +1561,47 @@ exports.updateVehicleNumber = async (req, res) => {
 };
 
 
+// Mark / unmark a single vehicle as done by the technician
+exports.markVehicleAsDone = async (req, res) => {
+  try {
+    const { ticketId, vehicleId, isDone } = req.body;
+
+    if (!ticketId || !vehicleId) {
+      return res.status(400).json({ message: 'ticketId and vehicleId are required' });
+    }
+
+    if (typeof isDone !== 'boolean') {
+      return res.status(400).json({ message: 'isDone must be a boolean' });
+    }
+
+    const ticket = await Ticket.findById(ticketId);
+    if (!ticket) {
+      return res.status(404).json({ message: 'Ticket not found' });
+    }
+
+    const vehicleObjectId = new mongoose.Types.ObjectId(vehicleId);
+    const vehicle = ticket.vehicleNumbers.id(vehicleObjectId);
+
+    if (!vehicle) {
+      return res.status(404).json({ message: 'Vehicle not found in ticket' });
+    }
+
+    vehicle.isDone = isDone;
+    await ticket.save();
+
+    return res.status(200).json({
+      message: isDone ? 'Vehicle marked as done' : 'Vehicle unmarked',
+      vehicle: vehicle.toObject(),
+    });
+  } catch (error) {
+    console.error('Error marking vehicle as done:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
 exports.createTechnician = async (req, res) => {
+
   try {
     const {
       beneficiaryId,

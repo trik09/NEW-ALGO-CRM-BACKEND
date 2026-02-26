@@ -123,6 +123,9 @@ router.patch("/add-accessories-to-vehicle", technicianController.addAccessoriesT
 // Get technician's spare inventory (items with status "with technician")
 router.get("/:id/spare-inventory", technicianController.getTechnicianSpareInventory);
 
+// Mark / unmark a single vehicle as done by the technician
+router.patch("/mark-vehicle-done", technicianController.markVehicleAsDone);
+
 
 
 module.exports = router;
