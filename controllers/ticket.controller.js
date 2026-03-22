@@ -418,13 +418,72 @@ const createTicket = async (req, res) => {
 
     // Populate references for the response
     const populatedTicket = await Ticket.findById(savedTicket._id)
-      .populate("qstClientName", "companyShortName")
+      .populate("qstClientName", "companyShortName companyName gstNo billingCategory billingAddress")
       .populate("assignee", "name")
       .populate("taskType", "taskName")
       .populate("deviceType", "deviceName")
       .populate("technician", "name")
       .populate("creator", "name")
       .populate("qstProjectID", "projectName");
+
+    // ── Fire-and-forget: forward to secondary .NET system ──────────────────
+    (() => {
+      const dotNetUrl = 'https://www.algotrack.in/AlgoCRMAPI/api/ticket';
+
+      if (!dotNetUrl) {
+        console.warn("[SecondSystem] DOTNET_SYSTEM_URL not set – skipping forward");
+        return;
+      }
+
+      // Base payload from populated ticket (names, not ObjectIds)
+      const basePayload = buildDotNetPayload(populatedTicket);
+
+      // Extra fields from req.body — only include if they have a real value
+      const addIfPresent = (obj, key, value) => {
+        if (value !== undefined && value !== null && value !== "") {
+          obj[key] = value;
+        }
+      };
+
+      const extraFields = {};
+      addIfPresent(extraFields, "assetType", req.body.assetType);
+      addIfPresent(extraFields, "deviceId", req.body.deviceId);
+      addIfPresent(extraFields, "deviceName", req.body.deviceName);
+      addIfPresent(extraFields, "deviceManufacturer", req.body.deviceManufacturer);
+      addIfPresent(extraFields, "deviceModel", req.body.deviceModel);
+      addIfPresent(extraFields, "simProvider", req.body.simProvider);
+      addIfPresent(extraFields, "server", req.body.server);
+      addIfPresent(extraFields, "referType", req.body.referType);
+      addIfPresent(extraFields, "isActivated", req.body.isActivated);
+      addIfPresent(extraFields, "mobileNumber", req.body.mobileNumber);
+
+      // Technician — only include ID if actually assigned
+      if (populatedTicket.technician?._id) {
+        extraFields.technicianId = populatedTicket.technician._id;
+        extraFields.technicianName = populatedTicket.technician.name || "";
+      }
+
+      const payload = { ...basePayload, ...extraFields };
+
+      console.log("[SecondSystem] Payload being sent to .NET system:", JSON.stringify(payload, null, 2));
+      fetch(dotNetUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+        .then(async (r) => {
+          const bodyText = await r.text();
+          if (r.ok) {
+            console.log(`[SecondSystem] Forwarded ticket ${savedTicket._id} – status ${r.status}`);
+          } else {
+            console.error(`[SecondSystem] ERROR forwarding ticket ${savedTicket._id} – status ${r.status}`);
+            console.error("[SecondSystem] Error body:", bodyText);
+            console.error("[SecondSystem] Payload that caused the error:", JSON.stringify(payload, null, 2));
+          }
+        })
+        .catch((err) => console.error("[SecondSystem] Failed to forward ticket:", err.message));
+    })();
+    // ───────────────────────────────────────────────────────────────────────
 
     res.status(201).json({
       success: true,
@@ -452,6 +511,103 @@ const createTicket = async (req, res) => {
 };
 
 
+// ─── Helper: build a human-readable payload for the .NET system ───────────────
+const buildDotNetPayload = (ticket) => ({
+  ticketSKUId: ticket.ticketSKUId,
+  qstClientId: ticket.qstClientName?._id || "",
+  clientName: ticket.qstClientName?.companyShortName || ticket.qstClientNameString || "",
+  clientFullName: ticket.qstClientName?.companyName || "",
+  taskType: ticket.taskType?.taskName || ticket.taskTypeString || "",
+  deviceType: ticket.deviceType?.deviceName || ticket.devicetypeNameString || "",
+  assigneeName: ticket.assignee?.name || ticket.assigneeNameString || "",
+  assigneeId: ticket.assignee?._id || "",
+  technicianName: ticket.technician?.name || ticket.technicianNameString || "",
+  creatorId: ticket.creator?._id || "",   // employeeId who created the ticket
+  creatorName: ticket.creator?.name || "",
+  projectName: ticket.qstProjectID?.projectName || ticket.qstClientProjectName || "",
+  qstClientTicketNumber: ticket.qstClientTicketNumber || "",
+  location: ticket.location || "",
+  state: ticket.state || "",
+  subjectLine: ticket.subjectLine || "",
+  description: ticket.description || "",
+  remark: ticket.remark || "",
+  registrationNumber: ticket.registrationNumber || "",
+  vehicleNumbers: (ticket.vehicleNumbers || []).map((v) => v.vehicleNumber),
+  noOfVehicles: ticket.noOfVehicles || 0,
+  ticketStatus: ticket.ticketStatus || "",
+  dueDate: ticket.dueDate || null,
+  ticketAvailabilityDate: ticket.ticketAvailabilityDate || null,
+  mobileNumber: ticket.mobile || "",
+  imeiNumbers: ticket.imeiNumbers || [],
+  simNumbers: ticket.simNumbers || [],
+  issueFound: ticket.issueFound || "",
+  resolution: ticket.resolution || "",
+  totalTechCharges: ticket.totalTechCharges || 0,
+  totalCustomerCharges: ticket.totalCustomerCharges || 0,
+  createdAt: ticket.createdAt || null,
+});
+
+// ─── POST /send-ticket-data-on-second-system ──────────────────────────────────
+// Accepts { ticketId } → populates ticket → POSTs human-readable payload to .NET
+const sendTicketDataOnSecondSystem = async (req, res) => {
+  try {
+    const { ticketId } = req.body;
+    if (!ticketId) {
+      return res.status(400).json({ success: false, message: "ticketId is required" });
+    }
+
+    const ticket = await Ticket.findById(ticketId)
+      .populate("qstClientName", "companyShortName companyName")
+      .populate("assignee", "name")
+      .populate("taskType", "taskName")
+      .populate("deviceType", "deviceName")
+      .populate("technician", "name")
+      .populate("creator", "name")
+      .populate("qstProjectID", "projectName");
+
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: "Ticket not found" });
+    }
+
+    const dotNetUrl = 'https://your-dotnet-api.com/api/receive-ticket';
+    if (!dotNetUrl) {
+      return res.status(500).json({ success: false, message: "DOTNET_SYSTEM_URL is not configured on the server" });
+    }
+
+    const payload = buildDotNetPayload(ticket);
+
+    const dotNetResponse = await fetch(dotNetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const responseText = await dotNetResponse.text();
+
+    if (!dotNetResponse.ok) {
+      return res.status(502).json({
+        success: false,
+        message: "Second system returned an error",
+        status: dotNetResponse.status,
+        body: responseText,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Ticket data forwarded to second system successfully",
+      sentPayload: payload,
+      secondSystemResponse: responseText,
+    });
+  } catch (error) {
+    console.error("[sendTicketDataOnSecondSystem] Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
 
 
 // const createNewTicket = async (req, res) => {
@@ -3995,6 +4151,20 @@ const getAllTickets = async (req, res) => {
         }
       } else if (dueDateFilter === "softClose") {
         query.softCloseByTechnician = true;
+      } else if (dueDateFilter === "techWorkNotDone") {
+        // Tickets that are open AND have at least one vehicle with isDone = false
+        const techWorkNotDoneQuery = {
+          $and: [
+            { isTicketClosed: { $ne: true } },
+            { ticketStatus: { $ne: "work done" } },
+            { "vehicleNumbers.isDone": false }
+          ]
+        };
+        if (Object.keys(query).length > 0) {
+          query = { $and: [query, techWorkNotDoneQuery] };
+        } else {
+          query = techWorkNotDoneQuery;
+        }
       } else {
         const dueDateQuery = {
           $and: [
@@ -4156,6 +4326,16 @@ const getAllTickets = async (req, res) => {
 
       // Soft Close tickets
       Ticket.countDocuments({ ...statsBaseFilter, softCloseByTechnician: true }),
+
+      // Tech Work Not Done - open tickets with at least one vehicle where isDone = false
+      Ticket.countDocuments({
+        ...statsBaseFilter,
+        $and: [
+          { isTicketClosed: { $ne: true } },
+          { ticketStatus: { $ne: "work done" } },
+          { "vehicleNumbers.isDone": false }
+        ]
+      }),
     ];
 
     const [
@@ -4167,6 +4347,7 @@ const getAllTickets = async (req, res) => {
       delayedCount,
       replacedCount,
       softCloseCount,
+      techWorkNotDoneCount,
     ] = await Promise.all(statsQueries);
 
     // Get total count for pagination
@@ -4328,6 +4509,7 @@ const getAllTickets = async (req, res) => {
           delayed: delayedCount,
           replaced: replacedCount,
           softClose: softCloseCount,
+          techWorkNotDone: techWorkNotDoneCount,
         },
       },
       data: tickets,
@@ -12271,5 +12453,6 @@ module.exports = {
   getTechnicianMargins,
   getTicketsByAvailabilityRange,
   ExportCanceledTicketDataByDateRange,
-  softCloseTicket
+  softCloseTicket,
+  sendTicketDataOnSecondSystem
 };

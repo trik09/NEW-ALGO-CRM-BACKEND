@@ -86,6 +86,9 @@ router.get('/margins', async (req, res) => {
 
 router.get('/availability-range', ticketController.getTicketsByAvailabilityRange);
 
+// Forward ticket data to secondary .NET system
+router.post('/send-ticket-data-on-second-system', isAuthenticated, ticketController.sendTicketDataOnSecondSystem);
+
 
 
 module.exports = router;

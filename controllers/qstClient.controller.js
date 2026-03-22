@@ -369,6 +369,64 @@ exports.createSingleQSTClient = async (req, res) => {
       };
     }
 
+    // ── Fire-and-forget: forward new client to secondary .NET system ──────────
+    (() => {
+      const dotNetUrl = 'https://www.algotrack.in/AlgoCRMAPI/api/company';
+      if (!dotNetUrl) {
+        console.warn("[SecondSystem] DOTNET_SYSTEM_URL not set – skipping client forward");
+        return;
+      }
+
+      // Populate zone, cse, creator in background (non-blocking)
+      QstClient.findById(savedClient._id)
+        .populate("cse", "name")
+        .populate("zone", "zone city")
+        .populate("qstClientCreator", "name")
+        .then((populatedClient) => {
+          if (!populatedClient) return;
+
+          const payload = {
+            qstClientId: populatedClient._id,
+            companyName: populatedClient.companyName || "",
+            companyShortName: populatedClient.companyShortName || "",
+            gstNo: populatedClient.gstNo || "",
+            billingAddress: populatedClient.billingAddress || "",
+            billingCategory: populatedClient.billingCategory || "",
+            keyClient: populatedClient.keyClient || false,
+
+            // Populated fields
+            cseName: populatedClient.cse?.name || "",
+            cseId: populatedClient.cse?._id || "",
+            zone: populatedClient.zone?.zone || "",
+            zoneCity: populatedClient.zone?.city || "",
+            creatorId: populatedClient.qstClientCreator?._id || "",
+            creatorName: populatedClient.qstClientCreator?.name || "",
+
+            // Contacts from req.body (not saved in model)
+            contacts: (contacts || []).map((c) => ({
+              contactPerson: c.contactPerson || "",
+              email: c.email || "",
+              mobileNo: c.mobileNo || "",
+            })),
+
+            // Project if created
+            projectName: projectName || "",
+            createdAt: populatedClient.createdAt || null,
+          };
+
+          console.log("[SecondSystem] Client payload being sent:", JSON.stringify(payload, null, 2));
+
+          return fetch(dotNetUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        })
+        .then((r) => { if (r) console.log(`[SecondSystem] Client forwarded – status ${r.status}`); })
+        .catch((err) => console.error("[SecondSystem] Failed to forward client:", err.message));
+    })();
+    // ─────────────────────────────────────────────────────────────────────────
+
     return res.status(201).json(response);
   } catch (error) {
     await session.abortTransaction();
