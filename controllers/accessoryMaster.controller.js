@@ -264,7 +264,7 @@ exports.getAllAccessoryMasters = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 20;
     const skip = (page - 1) * limit;
 
-    const { search, sortOrder, sortBy, status: statusFilter, assignedTo: assignedToFilter } = req.query;
+    const { search, sortOrder, sortBy, status: statusFilter, assignedTo: assignedToFilter, testingStatus: testingStatusFilter } = req.query;
 
     let searchQuery = {};
     if (search) {
@@ -289,6 +289,10 @@ exports.getAllAccessoryMasters = async (req, res) => {
     // ✅ filter by assignedTo if provided
     if (assignedToFilter && mongoose.Types.ObjectId.isValid(assignedToFilter)) {
       searchQuery.assignedTo = new mongoose.Types.ObjectId(assignedToFilter);
+    }
+
+    if (testingStatusFilter) {
+      searchQuery.testingStatus = testingStatusFilter;
     }
 
     const sortField = sortBy || "createdAt";
@@ -828,6 +832,15 @@ exports.updateAccessoryMasters = async (req, res) => {
 
       if (incomingStatus === "stock") {
         accessory.stockEnteredAt = new Date();
+      }
+
+      // ✅ if moved out of active vehicle use
+      if (["testing", "defective", "stock"].includes(incomingStatus)) {
+        const MainData = require("../models/mainData.model");
+        await MainData.updateMany(
+          { accessoryDetails: accessory._id },
+          { $pull: { accessoryDetails: accessory._id } }
+        );
       }
     }
 

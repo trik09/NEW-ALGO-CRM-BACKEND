@@ -88,6 +88,7 @@ const simMasterSchema = new mongoose.Schema(
     },
     defectMarkedDate: Date,
     defectReason: String,
+    defectImages: [{ type: String }],
 
     // R&D Testing fields
     testingStatus: {

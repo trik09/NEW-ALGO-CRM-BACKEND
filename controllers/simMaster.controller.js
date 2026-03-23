@@ -430,6 +430,15 @@ exports.updateSimMaster = async (req, res) => {
         if (incomingStatus === "stock") {
           sim.stockEnteredAt = new Date();
         }
+
+        // ✅ if moved out of active vehicle use
+        if (["testing", "defective", "stock"].includes(incomingStatus)) {
+          const MainData = require("../models/mainData.model");
+          await MainData.updateMany(
+            { simDetails: sim._id },
+            { $unset: { simDetails: 1 } }
+          );
+        }
       }
     }
 
@@ -457,6 +466,7 @@ exports.getAllSimMasters = async (req, res) => {
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
     const statusFilter = req.query.status;
     const assignedToFilter = req.query.assignedTo;
+    const testingStatusFilter = req.query.testingStatus;
 
     let searchQuery = {};
     if (search) {
@@ -479,6 +489,14 @@ exports.getAllSimMasters = async (req, res) => {
       searchQuery.status = statusFilter;
     }
 
+    if (assignedToFilter && mongoose.Types.ObjectId.isValid(assignedToFilter)) {
+      searchQuery.assignedTo = new mongoose.Types.ObjectId(assignedToFilter);
+    }
+
+    if (testingStatusFilter) {
+      searchQuery.testingStatus = testingStatusFilter;
+    }
+
     // ✅ filter by assignedTo if provided
     if (assignedToFilter && mongoose.Types.ObjectId.isValid(assignedToFilter)) {
       searchQuery.assignedTo = new mongoose.Types.ObjectId(assignedToFilter);
@@ -488,6 +506,7 @@ exports.getAllSimMasters = async (req, res) => {
 
     const raw = await simMasterModel
       .find(searchQuery)
+      .populate({ path: "assignedTo", select: "name companyName" })
       .sort({ [sortBy]: sortOrder })
       .skip(skip)
       .limit(limit)
@@ -498,6 +517,9 @@ exports.getAllSimMasters = async (req, res) => {
     today.setHours(0, 0, 0, 0);
 
     const simMasters = raw.map((s) => {
+      // ✅ assignedToName
+      const assignedToName = s?.assignedTo?.name || s?.assignedTo?.companyName || "";
+
       // ✅ days in stock
       let daysInStock = null;
       if (s.status === "stock") {
@@ -524,7 +546,7 @@ exports.getAllSimMasters = async (req, res) => {
         demoAlert = isDemoExpiringSoon(s.demoToDate, 2);
       }
 
-      return { ...s, daysInStock, demoDaysLeft, demoAlert, demoExpired };
+      return { ...s, assignedToName, daysInStock, demoDaysLeft, demoAlert, demoExpired };
     });
 
     const totalPages = Math.ceil(totalCount / limit);

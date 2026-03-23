@@ -305,10 +305,10 @@ const getAllDevicesForTableShow = async (req, res) => {
         deviceName: device.deviceName,
         deviceCreator: device.deviceCreator
           ? {
-              _id: device.deviceCreator._id,
-              name: device.deviceCreator.name,
-              email: device.deviceCreator.email,
-            }
+            _id: device.deviceCreator._id,
+            name: device.deviceCreator.name,
+            email: device.deviceCreator.email,
+          }
           : null,
         createdAt: device.createdAt,
         updatedAt: device.updatedAt,
@@ -467,9 +467,9 @@ const getDetailsForStore = async (req, res) => {
     ]);
 
     const [devices, sims, accessories] = await Promise.all([
-      DeviceMaster.find({ _id: { $nin: usedDeviceIds } }),
-      SimMaster.find({ _id: { $nin: usedSimIds } }),
-      AccessoryMaster.find({}), // ✅ return all because repeat allowed
+      DeviceMaster.find({ _id: { $nin: usedDeviceIds }, status: "stock", testingStatus: "tested ok" }),
+      SimMaster.find({ _id: { $nin: usedSimIds }, status: "stock", testingStatus: "tested ok" }),
+      AccessoryMaster.find({ status: "stock", testingStatus: "tested ok" }), // ✅ return all because repeat allowed
     ]);
 
     res.status(200).json({
@@ -530,10 +530,10 @@ const createNewMainData = async (req, res) => {
       const accessoryIds = Array.isArray(v?.accessoryIds)
         ? v.accessoryIds.filter(Boolean)
         : Array.isArray(v?.accessoryDetails)
-        ? v.accessoryDetails
+          ? v.accessoryDetails
             .map((a) => a?.accessoryId || a?._id || a)
             .filter(Boolean)
-        : [];
+          : [];
 
       return {
         company: companyId,

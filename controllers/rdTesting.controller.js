@@ -62,6 +62,8 @@ const rdTestItem = async (model, id, { testingStatus, images = [] }, userName) =
 
     if (newStatus === "stock") {
         item.stockEnteredAt = new Date();
+        item.assignedTo = null;
+        item.assignedToModel = null;
     }
 
     await item.save();

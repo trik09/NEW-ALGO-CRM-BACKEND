@@ -254,6 +254,7 @@ exports.createSwapRequest = async (req, res) => {
         defectiveItem.isDefective = true;
         defectiveItem.defectMarkedDate = new Date();
         defectiveItem.defectReason = defectDescription;
+        defectiveItem.defectImages = defectImages;
         defectiveItem.assignedTo = technicianId;
         defectiveItem.assignedToModel = 'Technician';
         defectiveItem.assignedToName = null;
@@ -487,7 +488,7 @@ exports.rejectSwapRequest = async (req, res) => {
 
         const ItemModel = getItemModel(swap.itemType);
 
-        // Update defective item - stays with technician
+        // Update defective item - moves to defective stock
         const defectiveItem = await ItemModel.findById(swap.defectiveItemId);
         if (!defectiveItem) {
             return res.status(404).json({
@@ -496,17 +497,22 @@ exports.rejectSwapRequest = async (req, res) => {
             });
         }
 
-        defectiveItem.status = 'with technician';
+        defectiveItem.status = 'defective';
         defectiveItem.isDefective = true; // Still marked as defective
         defectiveItem.defectMarkedDate = new Date();
         defectiveItem.defectReason = swap.defectDescription;
-        defectiveItem.assignedTo = swap.technicianId;
-        defectiveItem.assignedToModel = 'Technician';
+        defectiveItem.assignedTo = null;
+        defectiveItem.assignedToModel = null;
+
+        // Remove assignedToName if it exists
+        if ('assignedToName' in defectiveItem) {
+            defectiveItem.assignedToName = null;
+        }
 
         // Add to status history
         if (defectiveItem.statusHistory) {
             defectiveItem.statusHistory.push({
-                status: 'with technician',
+                status: 'defective',
                 changedAt: new Date(),
                 changedBy: `CSE ${cseId} - Defect Rejected`
             });

@@ -819,6 +819,15 @@ exports.updateDeviceMasters = async (req, res) => {
       if (incomingStatus === "stock") {
         device.stockEnteredAt = new Date();
       }
+
+      // ✅ if moved out of active vehicle use
+      if (["testing", "defective", "stock"].includes(incomingStatus)) {
+        const MainData = require("../models/mainData.model");
+        await MainData.updateMany(
+          { deviceDetails: device._id },
+          { $unset: { deviceDetails: 1 } }
+        );
+      }
     }
 
     const updated = await device.save();
@@ -840,7 +849,7 @@ exports.getAllDeviceMasters = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
-    const { search, sortBy, sortOrder, status: statusFilter, assignedTo: assignedToFilter } = req.query;
+    const { search, sortBy, sortOrder, status: statusFilter, assignedTo: assignedToFilter, testingStatus: testingStatusFilter } = req.query;
 
     let searchQuery = {};
     if (search) {
@@ -865,6 +874,10 @@ exports.getAllDeviceMasters = async (req, res) => {
     // ✅ filter by assignedTo if provided
     if (assignedToFilter && mongoose.Types.ObjectId.isValid(assignedToFilter)) {
       searchQuery.assignedTo = new mongoose.Types.ObjectId(assignedToFilter);
+    }
+
+    if (testingStatusFilter) {
+      searchQuery.testingStatus = testingStatusFilter;
     }
 
     const sortField = sortBy || "createdAt";
