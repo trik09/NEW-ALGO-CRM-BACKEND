@@ -264,7 +264,7 @@ exports.getAllAccessoryMasters = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 20;
     const skip = (page - 1) * limit;
 
-    const { search, sortOrder, sortBy } = req.query;
+    const { search, sortOrder, sortBy, status: statusFilter, assignedTo: assignedToFilter } = req.query;
 
     let searchQuery = {};
     if (search) {
@@ -279,6 +279,16 @@ exports.getAllAccessoryMasters = async (req, res) => {
           { accessoryPerRate: { $regex: search, $options: "i" } },
         ],
       };
+    }
+
+    // ✅ filter by status if provided
+    if (statusFilter) {
+      searchQuery.status = statusFilter;
+    }
+
+    // ✅ filter by assignedTo if provided
+    if (assignedToFilter && mongoose.Types.ObjectId.isValid(assignedToFilter)) {
+      searchQuery.assignedTo = new mongoose.Types.ObjectId(assignedToFilter);
     }
 
     const sortField = sortBy || "createdAt";
@@ -375,6 +385,7 @@ exports.createAccessoryMasters = async (req, res) => {
       "sold to customer": "QstClient",
       "customer demo": "QstClient",
       foc: "QstClient",
+      testing: "Employee",
     };
 
     // ✅ If status requires owner, validate assignedTo and set assignedToModel automatically
@@ -735,7 +746,8 @@ exports.updateAccessoryMasters = async (req, res) => {
       "with cse": "Employee",
       "sold to customer": "QstClient",
       "customer demo": "QstClient",
-      foc: "QstClient",
+      "foc": "QstClient",
+      "testing": "Employee",
     };
 
     // ✅ assignment rules ONLY if status is being updated
@@ -804,10 +816,14 @@ exports.updateAccessoryMasters = async (req, res) => {
       accessory.status = incomingStatus;
 
       accessory.statusHistory = accessory.statusHistory || [];
+      let changedBy = req.user?.name || req.user?.email || "system";
+      if (incomingStatus === "testing" && accessory.assignedToName) {
+        changedBy = `${changedBy} - Assigned to R&D: ${accessory.assignedToName}`;
+      }
       accessory.statusHistory.push({
         status: incomingStatus,
         changedAt: new Date(),
-        changedBy: req.user?.name || req.user?.email || "system",
+        changedBy,
       });
 
       if (incomingStatus === "stock") {

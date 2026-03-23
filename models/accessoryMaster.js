@@ -78,7 +78,7 @@ const accessoryMasterSchema = new mongoose.Schema(
     },
     assignedToModel: {
       type: String,
-      enum: ["Employee", "Technician", "QstClient"], // ✅ CHANGE to your actual model names
+      enum: ["Employee", "Technician", "QstClient", "r&d", "store", "cse"],
       default: null,
     },
 
@@ -99,6 +99,14 @@ const accessoryMasterSchema = new mongoose.Schema(
     },
     defectMarkedDate: Date,
     defectReason: String,
+
+    // R&D Testing fields
+    testingStatus: {
+      type: String,
+      enum: ["pending", "tested ok", "tested not ok", null],
+      default: null,
+    },
+    images: [{ type: String }],
   },
   { timestamps: true },
 );

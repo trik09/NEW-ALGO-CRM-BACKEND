@@ -696,7 +696,8 @@ function pushStatusHistory(doc, status, changedBy) {
 
 function getAssignedToModelFromStatus(status) {
   if (status === "with technician") return "Technician";
-  if (status === "with cse") return "Employee"; // CSE are employees
+  if (status === "with cse") return "Employee";
+  if (status === "testing") return "Employee";
   if (
     status === "sold to customer" ||
     status === "customer demo" ||
@@ -747,6 +748,7 @@ exports.updateDeviceMasters = async (req, res) => {
         "sold to customer",
         "customer demo",
         "foc",
+        "testing",
       ].includes(incomingStatus);
 
       if (!needsAssignedTo) {
@@ -805,11 +807,14 @@ exports.updateDeviceMasters = async (req, res) => {
     // ✅ status change + history
     if (incomingStatus && incomingStatus !== prevStatus) {
       device.status = incomingStatus;
-      pushStatusHistory(
-        device,
-        incomingStatus,
-        req.user?.name || req.user?.email,
-      );
+
+      // build a richer changedBy message for testing status
+      let changedBy = req.user?.name || req.user?.email || "system";
+      if (incomingStatus === "testing" && device.assignedToName) {
+        changedBy = `${changedBy} - Assigned to R&D: ${device.assignedToName}`;
+      }
+
+      pushStatusHistory(device, incomingStatus, changedBy);
 
       if (incomingStatus === "stock") {
         device.stockEnteredAt = new Date();
@@ -835,7 +840,7 @@ exports.getAllDeviceMasters = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
-    const { search, sortBy, sortOrder } = req.query;
+    const { search, sortBy, sortOrder, status: statusFilter, assignedTo: assignedToFilter } = req.query;
 
     let searchQuery = {};
     if (search) {
@@ -852,11 +857,21 @@ exports.getAllDeviceMasters = async (req, res) => {
       };
     }
 
+    // ✅ filter by status if provided
+    if (statusFilter) {
+      searchQuery.status = statusFilter;
+    }
+
+    // ✅ filter by assignedTo if provided
+    if (assignedToFilter && mongoose.Types.ObjectId.isValid(assignedToFilter)) {
+      searchQuery.assignedTo = new mongoose.Types.ObjectId(assignedToFilter);
+    }
+
     const sortField = sortBy || "createdAt";
     const sortDir =
       String(sortOrder).toLowerCase() === "asc" ||
-      sortOrder === 1 ||
-      sortOrder === "1"
+        sortOrder === 1 ||
+        sortOrder === "1"
         ? 1
         : -1;
 

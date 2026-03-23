@@ -5,6 +5,7 @@ const {
 } = require("../middleware/auth.middleware");
 const router = express.Router();
 const accessoryMasterController = require("../controllers/accessoryMaster.controller");
+const rdTestingController = require("../controllers/rdTesting.controller");
 
 router.get(
   "/get-all-accessoryMaster",
@@ -34,4 +35,22 @@ router.delete(
   accessoryMasterController.deleteAccessoryMasters
 );
 
+// R&D Testing — only r&d role
+router.put(
+  "/rd-testing/:id",
+  isAuthenticated,
+  authorizeRoles("r&d"),
+  rdTestingController.rdTestAccessory
+);
+
+// R&D Delete image
+router.delete(
+  "/rd-image/:id",
+  isAuthenticated,
+  authorizeRoles("r&d", "superAdmin", "admin"),
+  rdTestingController.rdDeleteAccessoryImage
+);
+
 module.exports = router;
+
+

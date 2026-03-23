@@ -8,6 +8,7 @@ const {
 function getAssignedToModelFromStatus(status) {
   if (status === "with technician") return "Technician";
   if (status === "with cse") return "Employee";
+  if (status === "testing") return "Employee";
   if (
     status === "sold to customer" ||
     status === "customer demo" ||
@@ -125,6 +126,7 @@ exports.createSimMaster = async (req, res) => {
       "sold to customer",
       "customer demo",
       "foc",
+      "testing",
     ].includes(finalStatus);
 
     if (!needsAssignedTo) {
@@ -136,6 +138,7 @@ exports.createSimMaster = async (req, res) => {
       let requiredModel = null;
       if (finalStatus === "with technician") requiredModel = "Technician";
       if (finalStatus === "with cse") requiredModel = "Employee";
+      if (finalStatus === "testing") requiredModel = "Employee";
       if (
         finalStatus === "sold to customer" ||
         finalStatus === "customer demo" ||
@@ -313,6 +316,7 @@ exports.updateSimMaster = async (req, res) => {
         "sold to customer",
         "customer demo",
         "foc",
+        "testing",
       ].includes(incomingStatus);
 
       // ✅ if status is changing to a "needsAssignedTo" status,
@@ -349,6 +353,7 @@ exports.updateSimMaster = async (req, res) => {
         let requiredModel = null;
         if (incomingStatus === "with technician") requiredModel = "Technician";
         if (incomingStatus === "with cse") requiredModel = "Employee";
+        if (incomingStatus === "testing") requiredModel = "Employee";
         if (
           incomingStatus === "sold to customer" ||
           incomingStatus === "customer demo" ||
@@ -412,10 +417,14 @@ exports.updateSimMaster = async (req, res) => {
       if (statusChanging) {
         sim.status = incomingStatus;
         sim.statusHistory = sim.statusHistory || [];
+        let changedBy = req.user?.name || req.user?.email || "system";
+        if (incomingStatus === "testing" && sim.assignedToName) {
+          changedBy = `${changedBy} - Assigned to R&D: ${sim.assignedToName}`;
+        }
         sim.statusHistory.push({
           status: incomingStatus,
           changedAt: new Date(),
-          changedBy: req.user?.name || req.user?.email || "system",
+          changedBy,
         });
 
         if (incomingStatus === "stock") {
@@ -446,6 +455,8 @@ exports.getAllSimMasters = async (req, res) => {
     const search = req.query.search || "";
     const sortBy = req.query.sortBy || "createdAt";
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+    const statusFilter = req.query.status;
+    const assignedToFilter = req.query.assignedTo;
 
     let searchQuery = {};
     if (search) {
@@ -461,6 +472,16 @@ exports.getAllSimMasters = async (req, res) => {
           { simPerRate: { $regex: search, $options: "i" } },
         ],
       };
+    }
+
+    // ✅ filter by status if provided
+    if (statusFilter) {
+      searchQuery.status = statusFilter;
+    }
+
+    // ✅ filter by assignedTo if provided
+    if (assignedToFilter && mongoose.Types.ObjectId.isValid(assignedToFilter)) {
+      searchQuery.assignedTo = new mongoose.Types.ObjectId(assignedToFilter);
     }
 
     const totalCount = await simMasterModel.countDocuments(searchQuery);

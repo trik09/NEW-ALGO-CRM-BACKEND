@@ -21,42 +21,42 @@ const employeeSchema = new mongoose.Schema({
       ref: "State", // Reference to State collection
     }
   ],
-  
+
   email: {
     type: String,
     required: true,
   },
-  password:{
-  type: String,
+  password: {
+    type: String,
     required: true,
   },
 
   role: {
     type: String,
-    enum: ['cse', 'admin', 'superAdmin','qstClient','store','r&d','technician'],
+    enum: ['cse', 'admin', 'superAdmin', 'qstClient', 'store', 'r&d', 'technician'],
     default: 'cse',
   },
   resetPasswordToken: {
     token: String,
     expires: Date,
   },
-  isEmailVerify:{
-    type:Number,required:true, default:0,
+  isEmailVerify: {
+    type: Number, required: true, default: 0,
   },
   phoneNumber: {
     type: String,
   },
   isTelecaller: {
     type: Boolean,
-    default: false, 
+    default: false,
   },
   location: {
     type: String,
   },
-   zone:{
-      type: String,
-      default: ""
-    },
+  zone: {
+    type: String,
+    default: ""
+  },
   employeeId: {
     type: String,
   },
@@ -79,7 +79,7 @@ const employeeSchema = new mongoose.Schema({
     type: String, // File path or URL
   },
   // if employee(user) created with client contact details then this qst client ID required.
-   associatedClient: {
+  associatedClient: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'QstClient'
   },

@@ -69,7 +69,7 @@ const simMasterSchema = new mongoose.Schema(
     },
     assignedToModel: {
       type: String,
-      enum: ["Technician", "Employee", "QstClient"],
+      enum: ["Technician", "Employee", "QstClient", "r&d", "store", "cse"],
       default: null,
     },
     assignedToName: { type: String, default: "" },
@@ -88,6 +88,14 @@ const simMasterSchema = new mongoose.Schema(
     },
     defectMarkedDate: Date,
     defectReason: String,
+
+    // R&D Testing fields
+    testingStatus: {
+      type: String,
+      enum: ["pending", "tested ok", "tested not ok", null],
+      default: null,
+    },
+    images: [{ type: String }],
   },
   { timestamps: true },
 );

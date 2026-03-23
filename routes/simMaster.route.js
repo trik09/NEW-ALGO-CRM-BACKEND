@@ -5,6 +5,7 @@ const {
 } = require("../middleware/auth.middleware");
 const router = express.Router();
 const simMasterController = require("../controllers/simMaster.controller");
+const rdTestingController = require("../controllers/rdTesting.controller");
 
 router.get(
   "/get-all-simMasters",
@@ -34,4 +35,22 @@ router.delete(
   simMasterController.deleteSimMaster
 );
 
+// R&D Testing — only r&d role
+router.put(
+  "/rd-testing/:id",
+  isAuthenticated,
+  authorizeRoles("r&d"),
+  rdTestingController.rdTestSim
+);
+
+// R&D Delete image
+router.delete(
+  "/rd-image/:id",
+  isAuthenticated,
+  authorizeRoles("r&d", "superAdmin", "admin"),
+  rdTestingController.rdDeleteSimImage
+);
+
 module.exports = router;
+
+

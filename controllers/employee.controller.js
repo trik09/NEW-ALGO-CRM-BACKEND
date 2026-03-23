@@ -427,7 +427,7 @@ exports.createEmployeeBySuperAdmin = async (req, res) => {
 
 
     // Role validation
-    const validRoles = ["cse", "admin", "store","r&d","technician"];
+    const validRoles = ["cse", "admin", "store", "r&d", "technician"];
     if (!validRoles.includes(role)) {
       return res.status(400).json({
         success: false,
@@ -772,7 +772,7 @@ exports.getAllEmployeeExceptSuperAdmin = async (req, res) => {
 // here we remove the qstClient contacts details user💀👇
 exports.getAllEmployee_Without_qstClient_contacts_user = async (req, res) => {
   try {
-    const allowedRoles = ["cse", "superAdmin", "admin"];
+    const allowedRoles = ["cse", "superAdmin", "admin", "r&d", "store", "technician"];
 
     const employees = await Employee.find({
       role: { $in: allowedRoles },

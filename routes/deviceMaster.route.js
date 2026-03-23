@@ -5,6 +5,7 @@ const {
 } = require("../middleware/auth.middleware");
 const router = express.Router();
 const deviceMasterController = require("../controllers/deviceMaster.controller");
+const rdTestingController = require("../controllers/rdTesting.controller");
 
 router.get(
   "/get-all-deviceMasters",
@@ -34,4 +35,22 @@ router.delete(
   deviceMasterController.deleteDeviceMasters
 );
 
+// R&D Testing — only r&d role
+router.put(
+  "/rd-testing/:id",
+  isAuthenticated,
+  authorizeRoles("r&d"),
+  rdTestingController.rdTestDevice
+);
+
+// R&D Delete image — r&d + admins can delete stale images
+router.delete(
+  "/rd-image/:id",
+  isAuthenticated,
+  authorizeRoles("r&d", "superAdmin", "admin"),
+  rdTestingController.rdDeleteDeviceImage
+);
+
 module.exports = router;
+
+

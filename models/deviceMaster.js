@@ -58,7 +58,7 @@ const deviceMasterSchema = new mongoose.Schema(
     },
     assignedToModel: {
       type: String,
-      enum: ["QstClient", "Technician", "Employee"],
+      enum: ["QstClient", "Technician", "Employee", "r&d", "store", "cse"],
       default: null,
     },
 
@@ -78,6 +78,14 @@ const deviceMasterSchema = new mongoose.Schema(
     },
     defectMarkedDate: Date,
     defectReason: String,
+
+    // R&D Testing fields
+    testingStatus: {
+      type: String,
+      enum: ["pending", "tested ok", "tested not ok", null],
+      default: null,
+    },
+    images: [{ type: String }],
   },
   { timestamps: true },
 );
