@@ -545,6 +545,46 @@ const buildDotNetPayload = (ticket) => ({
   totalTechCharges: ticket.totalTechCharges || 0,
   totalCustomerCharges: ticket.totalCustomerCharges || 0,
   createdAt: ticket.createdAt || null,
+
+  // --- Technician Work & Operations History ---
+
+  // 1. Vehicle progress (Technician Image Uploads, Videos, and "isDone" flag)
+  vehicleOperations: (ticket.vehicleNumbers || []).map(v => ({
+    vehicleNumber: v.vehicleNumber,
+    isDone: v.isDone || false,
+    images: v.images || [],
+    videoURL: v.videoURL || "",
+    isReinstallationNewVehicle: v.isResinstalationTypeNewVehicalNumber || false
+  })),
+
+  // 2. Soft Close Details
+  softClose: {
+    isSoftClosed: ticket.softCloseByTechnician || false,
+    date: ticket.softCloseByTechnicianDate || null,
+    reason: ticket.softCloseByTechnicianComment?.reason || ticket.softCloseByTechnicianComment || ""
+  },
+
+  // 3. Swap Histories (including CSE Rejections/Approvals & Defect Images)
+  swapHistories: (ticket.spareSwaps || []).map(swap => ({
+    vehicleNumber: swap.vehicleNumber,
+    itemType: swap.itemType,
+    defectDescription: swap.defectDescription || "",
+    defectImages: swap.defectImages || [],
+    swapDate: swap.swapDate || null,
+
+    // CSE Approval Workflow captures rejections
+    cseApprovalStatus: swap.cseApprovalStatus || "pending",
+    cseApprovalDate: swap.cseApprovalDate || null,
+    cseComments: swap.cseComments || "",
+
+    defectiveItemModel: swap.defectiveItemModel,
+    defectiveItemSerialNumber: swap.defectiveItemSerialNumber || "",
+    spareItemModel: swap.spareItemModel,
+    spareItemSerialNumber: swap.spareItemSerialNumber || ""
+  })),
+
+  // 4. Initial attachment files (when ticket created)
+  initialAttachments: ticket.attachedFiles || [],
 });
 
 // ─── POST /send-ticket-data-on-second-system ──────────────────────────────────
@@ -6315,13 +6355,15 @@ const updateTicket = async (req, res) => {
       new: true,
       runValidators: true,
     }).populate([
-      { path: "qstClientName", select: "companyShortName" },
+      { path: "qstClientName", select: "companyShortName companyName gstNo billingCategory billingAddress" },
       { path: "assignee", select: "name" },
       { path: "taskType", select: "taskName" },
       { path: "deviceType", select: "deviceName" },
       { path: "technician", select: "name email _id" },
       { path: "creator", select: "name" },
       { path: "qstProjectID", select: "projectName _id" },
+      { path: "spareSwaps" },
+      { path: "softCloseByTechnicianComment", select: "reason" },
       // { path: "issueFoundRef", select: "name description" },
       // { path: "resolutionRef", select: "name description" },
     ]);
@@ -6363,6 +6405,37 @@ const updateTicket = async (req, res) => {
         console.error("Failed to send technician email:", emailError);
       }
     }
+
+    // ── Fire-and-forget: forward to /abc-send-data when CSE closes ticket ──
+    if (role === "cse" && (ticketStatus === "work done" || ticketStatus === "work not done")) {
+      // Only fire if the status wasn't ALREADY closed or we want to fire it every time they hit save?
+      // Since it's a webhook for closing, typically we fire if transitioning, but we'll fire when they update it
+      // to the terminal state or change something while in terminal state.
+      if (existingTicket.ticketStatus !== "work done" && existingTicket.ticketStatus !== "work not done") {
+        (() => {
+          const externalUrl = 'https://www.algotrack.in/AlgoCRMAPI/api/ticket/abc-send-data';
+          const payload = buildDotNetPayload(updatedTicket);
+
+          console.log("[SecondSystem] CSE closed ticket. Payload being sent to /abc-send-data:", JSON.stringify(payload, null, 2));
+          fetch(externalUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+            .then(async (r) => {
+              const bodyText = await r.text().catch(() => "");
+              if (r.ok) {
+                console.log(`[SecondSystem] Forwarded ticket ${updatedTicket._id} to /abc-send-data – status ${r.status}`);
+              } else {
+                console.error(`[SecondSystem] ERROR forwarding ticket ${updatedTicket._id} – status ${r.status}`);
+                console.error("[SecondSystem] Error body:", bodyText);
+              }
+            })
+            .catch((err) => console.error("[SecondSystem] Failed to forward ticket on CSE close:", err.message));
+        })();
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     res.status(200).json({
       success: true,
