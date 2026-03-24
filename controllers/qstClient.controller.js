@@ -292,7 +292,7 @@ exports.createSingleQSTClient = async (req, res) => {
         savedEmployee.name,
         savedEmployee.email,
         tempPassword,
-        `${process.env.CLIENT_BASE_URL}/login`,
+        `${(process.env.FRONTEND_URL || process.env.CLIENT_BASE_URL || "").replace(/\/api\/?$/, "")}/login`,
       );
       try {
         await sendEmail({
@@ -1360,7 +1360,7 @@ exports.updateSingleQSTClient = async (req, res) => {
     //       savedEmployee.name,
     //       savedEmployee.email,
     //       tempPassword,
-    //       `${process.env.CLIENT_BASE_URL}/login`
+    //       `${(process.env.FRONTEND_URL || process.env.CLIENT_BASE_URL || "").replace(/\/api\/?$/, "")}/login`
     //     );
 
     //     try {
@@ -1477,7 +1477,7 @@ exports.updateSingleQSTClient = async (req, res) => {
           savedEmployee.name,
           savedEmployee.email,
           tempPassword,
-          `${process.env.CLIENT_BASE_URL}/login`,
+          `${(process.env.FRONTEND_URL || process.env.CLIENT_BASE_URL || "").replace(/\/api\/?$/, "")}/login`,
         );
 
         try {

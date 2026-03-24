@@ -611,7 +611,7 @@ exports.createEmployeeBySuperAdmin = async (req, res) => {
       newEmployee.email,
       // tempPassword,
       password,
-      `${process.env.CLIENT_BASE_URL}/login`
+      `${(process.env.FRONTEND_URL || process.env.CLIENT_BASE_URL || "").replace(/\/api\/?$/, "")}/login`
     );
     try {
       await sendEmail({

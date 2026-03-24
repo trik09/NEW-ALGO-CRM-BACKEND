@@ -21,7 +21,7 @@ const forgotPassword = async (req, res) => {
     user.resetPasswordToken = { token, expires };
     await user.save();
 
-    const resetUrl = `${process.env.CLIENT_BASE_URL}/reset-password/${token}`;
+    const resetUrl = `${(process.env.FRONTEND_URL || process.env.CLIENT_BASE_URL || "").replace(/\/api\/?$/, "")}/reset-password/${token}`;
     const html = passwordResetTemplate(user.email, resetUrl);
 
     await sendEmail({
@@ -197,7 +197,7 @@ const createUser = async (req, res) => {
     }
 
     // 2. Role Restriction
-    const allowedRoles = ["admin", "cse","superAdmin"];
+    const allowedRoles = ["admin", "cse", "superAdmin"];
     if (!allowedRoles.includes(role)) {
       return res.status(403).json({
         success: false,
@@ -267,7 +267,7 @@ const createUser = async (req, res) => {
 //   try {
 //     // Log the raw request body for debugging
 //     console.log("Raw request body:", JSON.stringify(req.body));
-    
+
 //     const { email, password } = req.body;
 
 //     console.log("Login request received:", { 
@@ -284,13 +284,13 @@ const createUser = async (req, res) => {
 //         .status(400)
 //         .json(errorResponse);
 //     }
-  
+
 //     // Find user by email (case-insensitive search)
 //     const normalizedEmail = email.trim().toLowerCase();
-    
+
 //     try {
 //       const user = await User.findOne({ email: normalizedEmail });
-      
+
 //       if (!user) {
 //         console.log("Login attempt - User not found for email:", normalizedEmail);
 //         const errorResponse = { message: "Invalid email or password." };
@@ -303,9 +303,9 @@ const createUser = async (req, res) => {
 //       // Use the model's matchPassword method
 //       // Don't trim password - it might have been stored with spaces
 //       const isMatch = await user.matchPassword(password.trim());
-      
+
 //       console.log("Password comparison result:", isMatch);
-      
+
 //       if (!isMatch) {
 //         console.log("Login attempt - Password mismatch for user:", user.email);
 //         const errorResponse = { message: "Invalid email or password." };
@@ -351,9 +351,9 @@ const createUser = async (req, res) => {
 //     // Use the model's matchPassword method
 //     // Don't trim password - it might have been stored with spaces
 //     const isMatch = await user.matchPassword(password.trim());
-    
+
 //     console.log("Password comparison result:", isMatch);
-    
+
 //     if (!isMatch) {
 //       console.log("Login attempt - Password mismatch for user:", user.email);
 //       const errorResponse = { message: "Invalid email or password." };
@@ -405,10 +405,10 @@ const login = async (req, res) => {
         .status(400)
         .json({ message: "Email and password are required." });
     }
-  
+
     const employee = await Employee.findOne({ email: email?.trim() });
-    console.log("Employee found : ",employee);
-    
+    console.log("Employee found : ", employee);
+
     if (!employee) {
       return res.status(400).json({ message: "Invalid email  " });
     }
