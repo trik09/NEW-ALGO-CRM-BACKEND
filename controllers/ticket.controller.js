@@ -12441,14 +12441,27 @@ async function getTicketsByAvailabilityRange(req, res) {
 const softCloseTicket = async (req, res) => {
   try {
     const { ticketId } = req.params;
-    const { status, reason } = req.body; // reason should be the _id of the TicketCloser reason
+    const { status, reason, technicianId } = req.body; // reason should be the _id of the TicketCloser reason
 
     if (!ticketId) {
       return res.status(400).json({ success: false, message: "Ticket ID is required" });
     }
 
+    if (!technicianId) {
+      return res.status(400).json({ success: false, message: "Technician ID is required" });
+    }
+
     if (status !== "Work Done" && status !== "Work Not Done") {
       return res.status(400).json({ success: false, message: "Invalid status" });
+    }
+
+    // Verify the technician is assigned to this ticket
+    const ticket = await Ticket.findById(ticketId).select('technician');
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: "Ticket not found" });
+    }
+    if (String(ticket.technician) !== String(technicianId)) {
+      return res.status(403).json({ success: false, message: "You are not assigned to this ticket" });
     }
 
     const updateData = {
@@ -12470,10 +12483,6 @@ const softCloseTicket = async (req, res) => {
       updateData,
       { new: true }
     );
-
-    if (!updatedTicket) {
-      return res.status(404).json({ success: false, message: "Ticket not found" });
-    }
 
     return res.status(200).json({
       success: true,
