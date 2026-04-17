@@ -18,6 +18,7 @@ const sendEmail = require("../utils/SendEmail");
 const securityCodeModel = require("../models/securityCode.model");
 const DueDateChangeLog = require("../models/DueDateChangeLog.model");
 const DefectiveItemSwap = require("../models/defectiveItemSwap.model");
+const MainData = require("../models/mainData.model");
 // const {deleteFromS3 } = require('../utils/S3Utils');
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -586,6 +587,103 @@ const buildDotNetPayload = (ticket) => ({
   // 4. Initial attachment files (when ticket created)
   initialAttachments: ticket.attachedFiles || [],
 });
+
+// ─── Helper: build the CSE-close-specific payload for the .NET system ─────────
+// Re-fetches the ticket fresh from DB to guarantee the latest per-vehicle data
+// (isDone, images, etc.) set by the technician, then queries MainData live to
+// get post-swap IMEI, SIM, deviceType, and Temperature for each vehicle.
+const buildCseClosePayload = async (ticket) => {
+  // ── Step 1: Re-fetch the ticket from DB to get the latest vehicleNumbers state
+  // (isDone and other fields may have been updated by technician AFTER the ticket
+  //  object was first populated for the CSE close flow)
+  const freshTicket = await Ticket.findById(ticket._id).lean();
+  const vehicleNumbers = freshTicket?.vehicleNumbers || ticket.vehicleNumbers || [];
+
+  console.log("🔄 [SecondSystem] Re-fetched ticket vehicleNumbers (latest isDone):",
+    vehicleNumbers.map((v) => ({ vehicleNumber: v.vehicleNumber, isDone: v.isDone })));
+
+  // ── Step 2: Query MainData live — already reflects post-swap device/SIM/accessory
+  const clientId = ticket.qstClientName?._id || ticket.qstClientName;
+  const vehicleNums = vehicleNumbers.map((v) => v.vehicleNumber);
+
+  const query = { registrationNumber: { $in: vehicleNums } };
+  if (clientId) query.company = clientId;
+
+  const mainDataRecords = await MainData.find(query)
+    .populate("deviceDetails", "deviceId deviceType deviceModel")
+    .populate("simDetails", "simNumber mobileNumber")
+    .populate("accessoryDetails", "accessoryType accessoryId");
+
+  console.log("➡️➡️➡️ Main Records : ", mainDataRecords);
+
+  // Diagnostic: how many total MainData records exist for this client?
+  const totalForClient = clientId ? await MainData.countDocuments({ company: clientId }) : "unknown (no clientId)";
+  console.log(`[SecondSystem] MainData for client ${clientId}: ${totalForClient} total record(s) in DB.`);
+  console.log(`[SecondSystem] MainData lookup: searched ${vehicleNums.length} vehicle(s) [${vehicleNums.join(", ")}], found ${mainDataRecords.length} match(es).`);
+  if (mainDataRecords.length < vehicleNums.length) {
+    const found = mainDataRecords.map((r) => r.registrationNumber);
+    const missing = vehicleNums.filter((v) => !found.includes(v));
+    console.warn(`[SecondSystem] No MainData record for: ${missing.join(", ")} — IMEI/SIM/deviceType will be empty for these.`);
+  }
+
+  // ── Step 3: Build lookup map: registrationNumber → MainData record
+  const mainDataMap = {};
+  for (const record of mainDataRecords) {
+    mainDataMap[record.registrationNumber] = record;
+  }
+
+  return {
+    ticketSKUId: ticket.ticketSKUId,
+    qstClientId: ticket.qstClientName?._id || "",
+    clientName: ticket.qstClientName?.companyShortName || ticket.qstClientNameString || "",
+    clientFullName: ticket.qstClientName?.companyName || "",
+    taskType: ticket.taskType?.taskName || ticket.taskTypeString || "",
+    assigneeName: ticket.assignee?.name || ticket.assigneeNameString || "",
+    assigneeId: ticket.assignee?._id || "",
+    technicianName: ticket.technician?.name || ticket.technicianNameString || "",
+    technicianId: ticket.technician?._id || "",
+    creatorId: ticket.creator?._id || "",
+    creatorName: ticket.creator?.name || "",
+    projectName: ticket.qstProjectID?.projectName || ticket.qstClientProjectName || "",
+    qstClientTicketNumber: ticket.qstClientTicketNumber || "",
+    location: ticket.location || "",
+    state: ticket.state || "",
+    subjectLine: ticket.subjectLine || "",
+    description: ticket.description || "",
+    remark: ticket.remark || "",
+    ticketStatus: ticket.ticketStatus || "",
+    dueDate: ticket.dueDate || null,
+    ticketAvailabilityDate: ticket.ticketAvailabilityDate || null,
+    totalTechCharges: ticket.totalTechCharges || 0,
+    totalCustomerCharges: ticket.totalCustomerCharges || 0,
+    createdAt: ticket.createdAt || null,
+
+    // ── Per-vehicle operations
+    // isDone   → from freshTicket (latest technician mark)
+    // imei/sim/deviceType/Temperature → from MainData (post-swap, live)
+    vehicleOperations: vehicleNumbers.map((v) => {
+      console.log("☑️☑️☑️ VehicleNumbers (fresh) : ", { vehicleNumber: v.vehicleNumber, isDone: v.isDone });
+      const md = mainDataMap[v.vehicleNumber] || {};
+      const device = md.deviceDetails || {};
+      const sim = md.simDetails || {};
+      const accessories = md.accessoryDetails || [];
+      const hasTemperature = accessories.some(
+        (acc) => acc.accessoryType && acc.accessoryType.toLowerCase().includes("temperature")
+      );
+
+      return {
+        vehicleNumber: v.vehicleNumber,
+        imei: device.deviceId || "",
+        sim: sim.simNumber || "",
+        deviceType: device.deviceType || device.deviceModel || "",
+        Temperature: hasTemperature,
+        isDone: v.isDone ?? false,      // ← from freshTicket, not stale caller snapshot
+        images: v.images || [],
+        videoURL: v.videoURL || "",
+      };
+    }),
+  };
+};
 
 // ─── POST /send-ticket-data-on-second-system ──────────────────────────────────
 // Accepts { ticketId } → populates ticket → POSTs human-readable payload to .NET
@@ -6268,6 +6366,7 @@ const updateTicket = async (req, res) => {
           images: existing?.images || [],
           videoURL: existing?.videoURL || "",
           isResinstalationTypeNewVehicalNumber: true,
+          isDone: existing?.isDone ?? false,   // ← preserve technician's mark
         };
       });
     } else {
@@ -6278,6 +6377,7 @@ const updateTicket = async (req, res) => {
           images: existing?.images || [],
           videoURL: existing?.videoURL || "",
           isResinstalationTypeNewVehicalNumber: false,
+          isDone: existing?.isDone ?? false,   // ← preserve technician's mark
         };
       });
     }
@@ -6408,34 +6508,34 @@ const updateTicket = async (req, res) => {
 
     // ── Fire-and-forget: forward to /abc-send-data when CSE closes ticket ──
     if (role === "cse" && (ticketStatus === "work done" || ticketStatus === "work not done")) {
-      // Only fire if the status wasn't ALREADY closed or we want to fire it every time they hit save?
-      // Since it's a webhook for closing, typically we fire if transitioning, but we'll fire when they update it
-      // to the terminal state or change something while in terminal state.
+      // Only fires on the FIRST transition into a closed state
       if (existingTicket.ticketStatus !== "work done" && existingTicket.ticketStatus !== "work not done") {
-        (() => {
-          const externalUrl = 'https://www.algotrack.in/AlgoCRMAPI/api/ticket/abc-send-data';
-          const payload = buildDotNetPayload(updatedTicket);
+        (async () => {
+          try {
+            const externalUrl = 'https://algotrack.in/AlgoCRMAPI/api/vehicle/sync-vehicle';
+            const payload = await buildCseClosePayload(updatedTicket);
 
-          console.log("[SecondSystem] CSE closed ticket. Payload being sent to /abc-send-data:", JSON.stringify(payload, null, 2));
-          fetch(externalUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          })
-            .then(async (r) => {
-              const bodyText = await r.text().catch(() => "");
-              if (r.ok) {
-                console.log(`[SecondSystem] Forwarded ticket ${updatedTicket._id} to /abc-send-data – status ${r.status}`);
-              } else {
-                console.error(`[SecondSystem] ERROR forwarding ticket ${updatedTicket._id} – status ${r.status}`);
-                console.error("[SecondSystem] Error body:", bodyText);
-              }
-            })
-            .catch((err) => console.error("[SecondSystem] Failed to forward ticket on CSE close:", err.message));
+            console.log("[SecondSystem] CSE closed ticket. Payload being sent to Sync Vehicle API :", JSON.stringify(payload, null, 2));
+            const r = await fetch(externalUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const bodyText = await r.text().catch(() => "");
+            if (r.ok) {
+              console.log(`[SecondSystem] Forwarded ticket ${updatedTicket._id} to /abc-send-data – status ${r.status}`);
+            } else {
+              console.error(`[SecondSystem] ERROR forwarding ticket ${updatedTicket._id} – status ${r.status}`);
+              console.error("[SecondSystem] Error body:", bodyText);
+            }
+          } catch (err) {
+            console.error("[SecondSystem] Failed to forward ticket on CSE close:", err.message);
+          }
         })();
       }
     }
     // ─────────────────────────────────────────────────────────────────────────
+
 
     res.status(200).json({
       success: true,

@@ -90,12 +90,6 @@ app.use('/api', require('./utils/S3Utils'))  // this is used for presigned URL
 
 app.get('/health', (req, res) => res.send('API health is OK'));
 
-// setInterval(() => {
-//   const used = process.memoryUsage();
-//   console.log(`Memory: ${Math.round(used.heapUsed / 1024 / 1024)}MB`);
-// }, 5000);
-
-
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
