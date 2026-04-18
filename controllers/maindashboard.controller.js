@@ -3282,6 +3282,259 @@ const getPerformanceRatioFY = async (req, res) => {
   }
 };
 
+// ── Warranty Stats for Device Master, Accessory Master & SIM Master ──────────
+const DeviceMasterModel = require("../models/deviceMaster");
+const AccessoryMasterModel = require("../models/accessoryMaster");
+const SimMasterModel = require("../models/simMaster");
+
+const getWarrantyStats = async (req, res) => {
+  try {
+    const [
+      deviceActive,
+      deviceOut,
+      accessoryActive,
+      accessoryOut,
+      simActive,
+      simInactive,
+    ] = await Promise.all([
+      DeviceMasterModel.countDocuments({ warrantyStatus: "active" }),
+      DeviceMasterModel.countDocuments({ warrantyStatus: "out of warranty" }),
+      AccessoryMasterModel.countDocuments({ warnatyStatus: "active" }),
+      AccessoryMasterModel.countDocuments({ warnatyStatus: "out of warranty" }),
+      // active = has a non-empty activationDate
+      SimMasterModel.countDocuments({
+        activationDate: { $exists: true, $nin: ["", null] },
+      }),
+      // inactive = activationDate missing, empty, or null
+      SimMasterModel.countDocuments({
+        $or: [
+          { activationDate: { $exists: false } },
+          { activationDate: "" },
+          { activationDate: null },
+        ],
+      }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      device: { active: deviceActive, outOfWarranty: deviceOut },
+      accessory: { active: accessoryActive, outOfWarranty: accessoryOut },
+      sim: { active: simActive, inactive: simInactive },
+    });
+  } catch (error) {
+    console.error("Error fetching warranty stats:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+// ── Inventory Type Stats: counts by device/accessory type & model ─────────────
+const getInventoryTypeStats = async (req, res) => {
+  try {
+    // Run all aggregations in parallel
+    const [
+      deviceTypeAgg,
+      deviceModelAgg,
+      temp_device,
+      temp_accessory,
+      fuel_device,
+      fuel_accessory,
+      accessoryTypeAgg,
+    ] = await Promise.all([
+      // All distinct deviceType values with counts (exclude null/empty)
+      DeviceMasterModel.aggregate([
+        { $match: { deviceType: { $exists: true, $nin: [null, ""] } } },
+        { $group: { _id: "$deviceType", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      // All distinct deviceModel values with counts (exclude null/empty)
+      DeviceMasterModel.aggregate([
+        { $match: { deviceModel: { $exists: true, $nin: [null, ""] } } },
+        { $group: { _id: "$deviceModel", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      // Temp — device
+      DeviceMasterModel.countDocuments({
+        $or: [
+          { deviceType:  { $regex: /temp/i } },
+          { deviceModel: { $regex: /temp/i } },
+        ],
+      }),
+      // Temp — accessory
+      AccessoryMasterModel.countDocuments({
+        $or: [
+          { accessoryType:  { $regex: /temp/i } },
+          { accessoryModel: { $regex: /temp/i } },
+        ],
+      }),
+      // Fuel — device
+      DeviceMasterModel.countDocuments({
+        $or: [
+          { deviceType:  { $regex: /fuel/i } },
+          { deviceModel: { $regex: /fuel/i } },
+        ],
+      }),
+      // Fuel — accessory
+      AccessoryMasterModel.countDocuments({
+        $or: [
+          { accessoryType:  { $regex: /fuel/i } },
+          { accessoryModel: { $regex: /fuel/i } },
+        ],
+      }),
+      // All distinct accessoryType values with counts
+      AccessoryMasterModel.aggregate([
+        { $match: { accessoryType: { $exists: true, $nin: [null, ""] } } },
+        { $group: { _id: "$accessoryType", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      // Arrays of { name, count } sorted by count desc
+      deviceTypes:    deviceTypeAgg.map((d) => ({ name: d._id, count: d.count })),
+      deviceModels:   deviceModelAgg.map((d) => ({ name: d._id, count: d.count })),
+      accessoryTypes: accessoryTypeAgg.map((d) => ({ name: d._id, count: d.count })),
+      // Combined temp/fuel totals
+      tempTotal: temp_device + temp_accessory,
+      fuelTotal: fuel_device + fuel_accessory,
+    });
+  } catch (error) {
+    console.error("Error fetching inventory type stats:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+// ── Demo Units Stats: within / outside demo period ───────────────────────────
+const getDemoStats = async (req, res) => {
+  try {
+    const now = new Date();
+
+    // today at 00:00:00 — used as lower bound for "within"
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+
+    // today at 23:59:59 — used as upper bound for "outside" check
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // IN DEMO  : demoFromDate <= today  AND  demoToDate >= todayStart
+    // OUT DEMO : demoToDate < todayStart  (to-date has fully passed, i.e. before today 00:00)
+
+    const [
+      deviceWithin, deviceOutside,
+      accessoryWithin, accessoryOutside,
+      simWithin, simOutside,
+    ] = await Promise.all([
+      DeviceMasterModel.countDocuments({
+        status: "customer demo",
+        demoFromDate: { $lte: todayEnd },
+        demoToDate:   { $gte: todayStart },
+      }),
+      DeviceMasterModel.countDocuments({
+        status: "customer demo",
+        demoToDate: { $lt: todayStart },
+      }),
+
+      AccessoryMasterModel.countDocuments({
+        status: "customer demo",
+        demoFromDate: { $lte: todayEnd },
+        demoToDate:   { $gte: todayStart },
+      }),
+      AccessoryMasterModel.countDocuments({
+        status: "customer demo",
+        demoToDate: { $lt: todayStart },
+      }),
+
+      SimMasterModel.countDocuments({
+        status: "customer demo",
+        demoFromDate: { $lte: todayEnd },
+        demoToDate:   { $gte: todayStart },
+      }),
+      SimMasterModel.countDocuments({
+        status: "customer demo",
+        demoToDate: { $lt: todayStart },
+      }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      total: {
+        within:  deviceWithin  + accessoryWithin  + simWithin,
+        outside: deviceOutside + accessoryOutside + simOutside,
+      },
+      device:    { within: deviceWithin,    outside: deviceOutside },
+      accessory: { within: accessoryWithin, outside: accessoryOutside },
+      sim:       { within: simWithin,       outside: simOutside },
+    });
+  } catch (error) {
+    console.error("Error fetching demo stats:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+const getStockStats = async (req, res) => {
+  try {
+    // Fetch ALL items with just the fields we need for counting + value calc
+    const [deviceAll, accessoryAll, simAll] = await Promise.all([
+      DeviceMasterModel.find({}, { devicePerRate: 1, warrantyStatus: 1, status: 1 }).lean(),
+      AccessoryMasterModel.find({}, { accessoryPerRate: 1, warnatyStatus: 1, status: 1 }).lean(),
+      SimMasterModel.find({}, { simPerRate: 1, isSimActivated: 1, activationDate: 1, status: 1 }).lean(),
+    ]);
+
+    const rate = (item, field) => {
+      const v = parseFloat(item[field]);
+      return isNaN(v) ? 0 : v;
+    };
+
+    // ── Device ──────────────────────────────────────────────
+    const deviceStock   = deviceAll.filter((d) => d.status === "stock");
+    const deviceActive  = deviceAll.filter((d) => d.warrantyStatus === "active");
+    const deviceInactive = deviceAll.filter((d) => d.warrantyStatus === "out of warranty");
+
+    // ── Accessory ───────────────────────────────────────────
+    const accessoryStock    = accessoryAll.filter((a) => a.status === "stock");
+    const accessoryActive   = accessoryAll.filter((a) => a.warnatyStatus === "active");
+    const accessoryInactive = accessoryAll.filter((a) => a.warnatyStatus === "out of warranty");
+
+    // ── SIM ─────────────────────────────────────────────────
+    const simStock    = simAll.filter((s) => s.status === "stock");
+    const simActive   = simAll.filter((s) => s.isSimActivated === true || (s.activationDate && String(s.activationDate).trim() !== ""));
+    const simInactive = simAll.filter((s) => !s.isSimActivated && (!s.activationDate || String(s.activationDate).trim() === ""));
+
+    const sum = (items, field) => items.reduce((acc, i) => acc + rate(i, field), 0);
+
+    res.status(200).json({
+      success: true,
+      device: {
+        stockCount:        deviceStock.length,
+        stockValue:        sum(deviceStock,   "devicePerRate"),
+        activeCount:       deviceActive.length,
+        activeValue:       sum(deviceActive,  "devicePerRate"),
+        inactiveCount:     deviceInactive.length,
+        inactiveValue:     sum(deviceInactive,"devicePerRate"),
+      },
+      accessory: {
+        stockCount:        accessoryStock.length,
+        stockValue:        sum(accessoryStock,    "accessoryPerRate"),
+        activeCount:       accessoryActive.length,
+        activeValue:       sum(accessoryActive,   "accessoryPerRate"),
+        inactiveCount:     accessoryInactive.length,
+        inactiveValue:     sum(accessoryInactive, "accessoryPerRate"),
+      },
+      sim: {
+        stockCount:        simStock.length,
+        stockValue:        sum(simStock,    "simPerRate"),
+        activeCount:       simActive.length,
+        activeValue:       sum(simActive,   "simPerRate"),
+        inactiveCount:     simInactive.length,
+        inactiveValue:     sum(simInactive, "simPerRate"),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching stock stats:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getKeyClientStats,
@@ -3300,4 +3553,8 @@ module.exports = {
   getOpenTicketsQty3Details,
   getZoneCompletionMonth,
   getPerformanceRatioFY,
+  getWarrantyStats,
+  getStockStats,
+  getInventoryTypeStats,
+  getDemoStats,
 };

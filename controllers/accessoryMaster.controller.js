@@ -264,19 +264,20 @@ exports.getAllAccessoryMasters = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 20;
     const skip = (page - 1) * limit;
 
-    const { search, sortOrder, sortBy, status: statusFilter, assignedTo: assignedToFilter, testingStatus: testingStatusFilter } = req.query;
+    const { search, sortOrder, sortBy, status: statusFilter, assignedTo: assignedToFilter, testingStatus: testingStatusFilter, warrantyStatus: warrantyStatusFilter } = req.query;
 
     let searchQuery = {};
     if (search) {
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       searchQuery = {
         $or: [
-          { accessoryManufacturer: { $regex: search, $options: "i" } },
-          { accessoryType: { $regex: search, $options: "i" } },
-          { accessoryModel: { $regex: search, $options: "i" } },
-          { accessoryId: { $regex: search, $options: "i" } },
-          { invoiceNumber: { $regex: search, $options: "i" } },
-          { status: { $regex: search, $options: "i" } },
-          { accessoryPerRate: { $regex: search, $options: "i" } },
+          { accessoryManufacturer: { $regex: escapedSearch, $options: "i" } },
+          { accessoryType: { $regex: escapedSearch, $options: "i" } },
+          { accessoryModel: { $regex: escapedSearch, $options: "i" } },
+          { accessoryId: { $regex: escapedSearch, $options: "i" } },
+          { invoiceNumber: { $regex: escapedSearch, $options: "i" } },
+          { status: { $regex: escapedSearch, $options: "i" } },
+          { accessoryPerRate: { $regex: escapedSearch, $options: "i" } },
         ],
       };
     }
@@ -284,6 +285,11 @@ exports.getAllAccessoryMasters = async (req, res) => {
     // ✅ filter by status if provided
     if (statusFilter) {
       searchQuery.status = statusFilter;
+    }
+
+    // ✅ filter by warrantyStatus if provided (note: field is warnatyStatus in model)
+    if (warrantyStatusFilter) {
+      searchQuery.warnatyStatus = warrantyStatusFilter;
     }
 
     // ✅ filter by assignedTo if provided

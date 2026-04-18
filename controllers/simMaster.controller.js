@@ -470,16 +470,17 @@ exports.getAllSimMasters = async (req, res) => {
 
     let searchQuery = {};
     if (search) {
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       searchQuery = {
         $or: [
-          { simOwner: { $regex: search, $options: "i" } },
-          { simProvider: { $regex: search, $options: "i" } },
-          { simNumber: { $regex: search, $options: "i" } },
-          { mobileNumber: { $regex: search, $options: "i" } },
-          { customerOrAlgoEmployeeName: { $regex: search, $options: "i" } },
-          { assignedToName: { $regex: search, $options: "i" } },
-          { status: { $regex: search, $options: "i" } },
-          { simPerRate: { $regex: search, $options: "i" } },
+          { simOwner: { $regex: escapedSearch, $options: "i" } },
+          { simProvider: { $regex: escapedSearch, $options: "i" } },
+          { simNumber: { $regex: escapedSearch, $options: "i" } },
+          { mobileNumber: { $regex: escapedSearch, $options: "i" } },
+          { customerOrAlgoEmployeeName: { $regex: escapedSearch, $options: "i" } },
+          { assignedToName: { $regex: escapedSearch, $options: "i" } },
+          { status: { $regex: escapedSearch, $options: "i" } },
+          { simPerRate: { $regex: escapedSearch, $options: "i" } },
         ],
       };
     }

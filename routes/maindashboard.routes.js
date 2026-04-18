@@ -71,4 +71,36 @@ router.get(
   maindashboardcontroller.getPerformanceRatioFY
 );
 
+// Warranty stats for Device Master & Accessory Master (store + admin)
+router.get(
+  "/warranty-stats",
+  isAuthenticated,
+  authorizeRoles("superAdmin", "admin", "store"),
+  maindashboardcontroller.getWarrantyStats
+);
+
+// Stock stats: count + total value + warranty breakdown
+router.get(
+  "/stock-stats",
+  isAuthenticated,
+  authorizeRoles("superAdmin", "admin", "store"),
+  maindashboardcontroller.getStockStats
+);
+
+// Inventory type stats: counts by device/accessory type & model
+router.get(
+  "/inventory-type-stats",
+  isAuthenticated,
+  authorizeRoles("superAdmin", "admin", "store"),
+  maindashboardcontroller.getInventoryTypeStats
+);
+
+// Demo units: within / outside demo period
+router.get(
+  "/demo-stats",
+  isAuthenticated,
+  authorizeRoles("superAdmin", "admin", "store"),
+  maindashboardcontroller.getDemoStats
+);
+
 module.exports = router;

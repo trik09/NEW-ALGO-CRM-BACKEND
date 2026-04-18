@@ -849,19 +849,21 @@ exports.getAllDeviceMasters = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
-    const { search, sortBy, sortOrder, status: statusFilter, assignedTo: assignedToFilter, testingStatus: testingStatusFilter } = req.query;
+    const { search, sortBy, sortOrder, status: statusFilter, assignedTo: assignedToFilter, testingStatus: testingStatusFilter, warrantyStatus: warrantyStatusFilter } = req.query;
 
     let searchQuery = {};
     if (search) {
+      // Escape special regex characters so strings like "AIS 140 + Temp" work correctly
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       searchQuery = {
         $or: [
-          { deviceManufacturer: { $regex: search, $options: "i" } },
-          { deviceType: { $regex: search, $options: "i" } },
-          { deviceModel: { $regex: search, $options: "i" } },
-          { deviceId: { $regex: search, $options: "i" } },
-          { invoiceNumber: { $regex: search, $options: "i" } },
-          { status: { $regex: search, $options: "i" } },
-          { devicePerRate: { $regex: search, $options: "i" } },
+          { deviceManufacturer: { $regex: escapedSearch, $options: "i" } },
+          { deviceType: { $regex: escapedSearch, $options: "i" } },
+          { deviceModel: { $regex: escapedSearch, $options: "i" } },
+          { deviceId: { $regex: escapedSearch, $options: "i" } },
+          { invoiceNumber: { $regex: escapedSearch, $options: "i" } },
+          { status: { $regex: escapedSearch, $options: "i" } },
+          { devicePerRate: { $regex: escapedSearch, $options: "i" } },
         ],
       };
     }
@@ -869,6 +871,11 @@ exports.getAllDeviceMasters = async (req, res) => {
     // ✅ filter by status if provided
     if (statusFilter) {
       searchQuery.status = statusFilter;
+    }
+
+    // ✅ filter by warrantyStatus if provided
+    if (warrantyStatusFilter) {
+      searchQuery.warrantyStatus = warrantyStatusFilter;
     }
 
     // ✅ filter by assignedTo if provided
