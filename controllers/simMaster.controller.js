@@ -618,32 +618,67 @@ exports.bulkCreateSimMasters = async (req, res) => {
       });
     }
 
-    // Map fields to match the model schema and handle monthlyDate conversion
-    const sims = rawSims.map((sim) => ({
-      ...sim,
-      monthlyBillingDate: sim.monthlyBillingDate || sim.monthlyDate,
-      purchaseDate: sim.purchaseDate ? new Date(sim.purchaseDate) : undefined,
-      isSimActivated:
-        sim.isSimActivated === true ||
-        sim.isSimActivated === "true" ||
-        sim.isSimActivated === "Yes" ||
-        sim.isSimActivated === "yes",
-    }));
+    // 1. Process and apply business logic
+    const sims = rawSims.map((sim) => {
+      const s = { ...sim };
 
-    // Clean up empty strings for enums
-    const cleanedSims = sims.map((sim) => {
-      if (sim.status === "" || sim.status === null) {
-        const { status, ...rest } = sim;
-        return rest;
+      // Handle monthlyDate mapping
+      s.monthlyBillingDate = s.monthlyBillingDate || s.monthlyDate;
+
+      // Clean up status
+      if (s.status === "" || s.status === null) delete s.status;
+      const finalStatus = s.status || "stock";
+      s.status = finalStatus;
+
+      // Handle dates safely
+      if (s.purchaseDate) {
+        const parsedDate = new Date(s.purchaseDate);
+        s.purchaseDate = isNaN(parsedDate.getTime()) ? undefined : parsedDate;
       }
-      return sim;
+
+      // Activation auto logic
+      if (s.activationDate) {
+        // If activation date is provided, ensure isSimActivated is true
+        s.isSimActivated = true;
+      } else {
+        // Fallback to what was provided or false
+        s.isSimActivated =
+          s.isSimActivated === true ||
+          s.isSimActivated === "true" ||
+          s.isSimActivated === "Yes" ||
+          s.isSimActivated === "yes";
+      }
+
+      // Assignment mapping
+      const autoModel = getAssignedToModelFromStatus(finalStatus);
+      if (autoModel) {
+        s.assignedToModel = autoModel;
+      } else {
+        s.assignedToModel = null;
+        s.assignedTo = null;
+        s.assignedToName = "";
+      }
+
+      // Stock entered at
+      if (finalStatus === "stock") {
+        s.stockEnteredAt = new Date();
+      }
+
+      // Initialize status history
+      s.statusHistory = [
+        {
+          status: finalStatus,
+          changedAt: new Date(),
+          changedBy: req.user?.name || req.user?.email || "bulk-import",
+        },
+      ];
+
+      return s;
     });
 
-    // 1. Get existing simNumbers and mobileNumbers to skip duplicates
-    const allSimNumbers = cleanedSims.map((s) => s.simNumber).filter(Boolean);
-    const allMobileNumbers = cleanedSims
-      .map((s) => s.mobileNumber)
-      .filter(Boolean);
+    // 2. Filter duplicates
+    const allSimNumbers = sims.map((s) => s.simNumber).filter(Boolean);
+    const allMobileNumbers = sims.map((s) => s.mobileNumber).filter(Boolean);
 
     const existingSims = await simMasterModel.find(
       {
@@ -663,7 +698,9 @@ exports.bulkCreateSimMasters = async (req, res) => {
     const seenSimNums = new Set();
     const seenMobileNums = new Set();
 
-    for (const sim of cleanedSims) {
+    for (const sim of sims) {
+      if (!sim.simNumber && !sim.mobileNumber) continue;
+
       const isDuplicate =
         (sim.simNumber &&
           (existingSimNums.has(sim.simNumber) ||
@@ -681,23 +718,51 @@ exports.bulkCreateSimMasters = async (req, res) => {
       }
     }
 
+    // 3. Batch Insert with ordered: false
     let createdSims = [];
+    let errorCount = 0;
+    let errorMessages = [];
+
     if (finalSimsToInsert.length > 0) {
-      createdSims = await simMasterModel.insertMany(finalSimsToInsert);
+      try {
+        createdSims = await simMasterModel.insertMany(finalSimsToInsert, {
+          ordered: false,
+        });
+      } catch (err) {
+        if (err.insertedDocs) {
+          createdSims = err.insertedDocs;
+        }
+        if (err.writeErrors) {
+          errorCount = err.writeErrors.length;
+          errorMessages = err.writeErrors.slice(0, 10).map((e) => e.errmsg);
+        } else {
+          console.error("Critical SIM Bulk Insert Error:", err);
+          return res.status(500).json({
+            success: false,
+            message: "A critical error occurred during SIM data insertion.",
+            error: err.message,
+          });
+        }
+      }
     }
 
     res.status(201).json({
       success: true,
-      message: `${createdSims.length} SIMs imported successfully. ${duplicateCount} duplicates skipped.`,
+      message: `${createdSims.length} SIMs imported successfully. ${duplicateCount} duplicates skipped. ${errorCount} rows failed validation.`,
       newCount: createdSims.length,
-      duplicateCount: duplicateCount,
+      duplicateCount,
+      errorCount,
+      topErrors: errorMessages.length > 0 ? errorMessages : undefined,
       data: createdSims,
     });
   } catch (error) {
-    console.log(error);
+    console.error("Bulk Import SIM Controller error:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message:
+        "An internal server error occurred while processing the bulk import.",
+      error: error.message,
     });
   }
 };
+

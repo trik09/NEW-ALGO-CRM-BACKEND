@@ -492,25 +492,77 @@ exports.bulkCreateAccessoryMasters = async (req, res) => {
       });
     }
 
-    // Map fields to match the model schema (Age and warnatyStatus)
-    const accessories = rawAccessories.map((acc) => ({
-      ...acc,
-      Age: acc.Age || acc.age,
-      warnatyStatus: acc.warnatyStatus || acc.warrantyStatus,
-    }));
+    const STATUS_OWNER_RULES = {
+      "with technician": "Technician",
+      "with cse": "Employee",
+      "sold to customer": "QstClient",
+      "customer demo": "QstClient",
+      "foc": "QstClient",
+      "testing": "Employee",
+    };
 
-    // 1. Get existing accessoryIds to skip duplicates
+    // 1. Process and apply business logic
+    const accessories = rawAccessories.map((acc) => {
+      const a = { ...acc };
+
+      // Map age and ensure defaults
+      a.Age = a.Age || a.age;
+      delete a.age;
+
+      delete a.warrantyStatus;
+      delete a.warnatyStatus;
+
+      if (a.status === "" || a.status === null) delete a.status;
+      const finalStatus = a.status || "stock";
+      a.status = finalStatus;
+
+      // Handle dates safely
+      if (a.invoiceDate) {
+        const parsedDate = new Date(a.invoiceDate);
+        a.invoiceDate = isNaN(parsedDate.getTime()) ? undefined : parsedDate;
+      }
+
+      // Auto calculate warranty status (warnatyStatus field in model)
+      const autoWarranty = computeWarrantyStatus(
+        a.invoiceDate,
+        a.warrantyPeriod,
+      );
+      if (autoWarranty) a.warnatyStatus = autoWarranty;
+
+      // Assignment mapping
+      const requiredModel = STATUS_OWNER_RULES[finalStatus];
+      if (requiredModel) {
+        a.assignedToModel = requiredModel;
+      } else {
+        a.assignedTo = null;
+        a.assignedToModel = null;
+      }
+
+      // Record entry time if stock
+      if (finalStatus === "stock") {
+        a.stockEnteredAt = new Date();
+      }
+
+      // Initialize status history
+      a.statusHistory = [
+        {
+          status: finalStatus,
+          changedAt: new Date(),
+          changedBy: req.user?.name || req.user?.email || "bulk-import",
+        },
+      ];
+
+      return a;
+    });
+
+    // 2. Filter duplicates
     const allAccessoryIds = accessories
       .map((a) => a.accessoryId)
       .filter(Boolean);
-
     const existingAccessories = await accessoryMasterModel.find(
-      {
-        accessoryId: { $in: allAccessoryIds },
-      },
+      { accessoryId: { $in: allAccessoryIds } },
       "accessoryId",
     );
-
     const existingAccessoryIds = new Set(
       existingAccessories.map((a) => a.accessoryId),
     );
@@ -520,40 +572,68 @@ exports.bulkCreateAccessoryMasters = async (req, res) => {
     const seenAccessoryIds = new Set();
 
     for (const acc of accessories) {
+      if (!acc.accessoryId) continue;
+
       if (
-        acc.accessoryId &&
-        (existingAccessoryIds.has(acc.accessoryId) ||
-          seenAccessoryIds.has(acc.accessoryId))
+        existingAccessoryIds.has(acc.accessoryId) ||
+        seenAccessoryIds.has(acc.accessoryId)
       ) {
         duplicateCount++;
       } else {
         finalAccessoriesToInsert.push(acc);
-        if (acc.accessoryId) seenAccessoryIds.add(acc.accessoryId);
+        seenAccessoryIds.add(acc.accessoryId);
       }
     }
 
-    let createdAccessories = [];
+    // 3. Batch Insert with ordered: false
+    let createdAccessoriesCount = 0;
+    let errorCount = 0;
+    let errorMessages = [];
+
     if (finalAccessoriesToInsert.length > 0) {
-      createdAccessories = await accessoryMasterModel.insertMany(
-        finalAccessoriesToInsert,
-      );
+      try {
+        const result = await accessoryMasterModel.insertMany(
+          finalAccessoriesToInsert,
+          { ordered: false },
+        );
+        createdAccessoriesCount = result.length;
+      } catch (err) {
+        if (err.insertedDocs) {
+          createdAccessoriesCount = err.insertedDocs.length;
+        }
+        if (err.writeErrors) {
+          errorCount = err.writeErrors.length;
+          errorMessages = err.writeErrors.slice(0, 10).map((e) => e.errmsg);
+        } else {
+          console.error("Critical Accessory Bulk Insert Error:", err);
+          return res.status(500).json({
+            success: false,
+            message: "A critical error occurred during Accessory data insertion.",
+            error: err.message,
+          });
+        }
+      }
     }
 
     res.status(201).json({
       success: true,
-      message: `${createdAccessories.length} Accessories imported successfully. ${duplicateCount} duplicates skipped.`,
-      newCount: createdAccessories.length,
-      duplicateCount: duplicateCount,
-      data: createdAccessories,
+      message: `${createdAccessoriesCount} Accessories imported successfully. ${duplicateCount} duplicates skipped. ${errorCount} rows failed validation.`,
+      newCount: createdAccessoriesCount,
+      duplicateCount,
+      errorCount,
+      topErrors: errorMessages.length > 0 ? errorMessages : undefined,
     });
   } catch (error) {
-    console.log(error);
+    console.error("Bulk Import Accessory Controller error:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message:
+        "An internal server error occurred while processing the bulk import.",
+      error: error.message,
     });
   }
 };
+
 
 // exports.updateAccessoryMasters = async (req, res) => {
 //   try {

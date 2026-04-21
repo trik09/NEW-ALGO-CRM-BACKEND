@@ -1076,29 +1076,62 @@ exports.bulkCreateDeviceMasters = async (req, res) => {
       });
     }
 
-    // Map fields and handle date conversion if needed
+    // 1. Pre-process and apply business logic
     const devices = rawDevices.map((device) => {
       const d = { ...device };
-      if (d.invoiceDate) d.invoiceDate = new Date(d.invoiceDate);
 
-      // Clean up enum fields: if they are empty strings, remove them so they don't trigger validation
-      if (d.warrantyStatus === "" || d.warrantyStatus === null)
-        delete d.warrantyStatus;
+      // Clean up fields & ensure defaults
+      delete d.warrantyStatus;
       if (d.status === "" || d.status === null) delete d.status;
+
+      const finalStatus = d.status || "stock";
+      d.status = finalStatus;
+
+      // Handle dates safely
+      if (d.invoiceDate) {
+        const parsedDate = new Date(d.invoiceDate);
+        d.invoiceDate = isNaN(parsedDate.getTime()) ? undefined : parsedDate;
+      }
+
+      // Auto calculate warranty status
+      const autoWarranty = computeWarrantyStatus(
+        d.invoiceDate,
+        d.warrantyPeriod,
+      );
+      if (autoWarranty) d.warrantyStatus = autoWarranty;
+
+      // Assignment mapping based on status
+      const autoModel = getAssignedToModelFromStatus(finalStatus);
+      if (autoModel) {
+        d.assignedToModel = autoModel;
+      } else {
+        d.assignedToModel = null;
+        d.assignedTo = null;
+      }
+
+      // Record entry time if stock
+      if (finalStatus === "stock") {
+        d.stockEnteredAt = new Date();
+      }
+
+      // Initialize status history
+      d.statusHistory = [
+        {
+          status: finalStatus,
+          changedAt: new Date(),
+          changedBy: req.user?.name || req.user?.email || "bulk-import",
+        },
+      ];
 
       return d;
     });
 
-    // 1. Get existing deviceIds to skip duplicates
+    // 2. Filter duplicates based on deviceId
     const allDeviceIds = devices.map((d) => d.deviceId).filter(Boolean);
-
     const existingDevices = await DeviceMasterModel.find(
-      {
-        deviceId: { $in: allDeviceIds },
-      },
+      { deviceId: { $in: allDeviceIds } },
       "deviceId",
     );
-
     const existingDeviceIds = new Set(existingDevices.map((d) => d.deviceId));
 
     const finalDevicesToInsert = [];
@@ -1106,38 +1139,72 @@ exports.bulkCreateDeviceMasters = async (req, res) => {
     const seenDeviceIds = new Set();
 
     for (const device of devices) {
+      if (!device.deviceId) {
+        // Skip rows without deviceId if it's required for uniqueness tracking
+        continue;
+      }
+
       if (
-        device.deviceId &&
-        (existingDeviceIds.has(device.deviceId) ||
-          seenDeviceIds.has(device.deviceId))
+        existingDeviceIds.has(device.deviceId) ||
+        seenDeviceIds.has(device.deviceId)
       ) {
         duplicateCount++;
       } else {
         finalDevicesToInsert.push(device);
-        if (device.deviceId) seenDeviceIds.add(device.deviceId);
+        seenDeviceIds.add(device.deviceId);
       }
     }
 
+    // 3. Perform bulk insert with ordered: false to skip errors
     let createdDevices = [];
+    let errorCount = 0;
+    let errorMessages = [];
+
     if (finalDevicesToInsert.length > 0) {
-      createdDevices = await DeviceMasterModel.insertMany(finalDevicesToInsert);
+      try {
+        createdDevices = await DeviceMasterModel.insertMany(
+          finalDevicesToInsert,
+          { ordered: false },
+        );
+      } catch (err) {
+        // If ordered is false, some docs might have been successful
+        if (err.insertedDocs) {
+          createdDevices = err.insertedDocs;
+        }
+        if (err.writeErrors) {
+          errorCount = err.writeErrors.length;
+          errorMessages = err.writeErrors.slice(0, 10).map((e) => e.errmsg); // limit to first 10 errors
+        } else {
+          // If it's a validation error or something else that prevents insertMany from starting/finishing
+          console.error("Critical Bulk Insert Error:", err);
+          return res.status(500).json({
+            success: false,
+            message: "A critical error occurred during data insertion.",
+            error: err.message,
+          });
+        }
+      }
     }
 
     res.status(201).json({
       success: true,
-      message: `${createdDevices.length} Devices imported successfully. ${duplicateCount} duplicates skipped.`,
+      message: `${createdDevices.length} Devices imported successfully. ${duplicateCount} duplicates skipped. ${errorCount} rows failed validation.`,
       newCount: createdDevices.length,
       duplicateCount: duplicateCount,
+      errorCount,
+      topErrors: errorMessages.length > 0 ? errorMessages : undefined,
       data: createdDevices,
     });
   } catch (error) {
-    console.log(error);
+    console.error("Bulk Import Controller error:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "An internal server error occurred while processing the bulk import.",
+      error: error.message,
     });
   }
 };
+
 
 exports.deleteDeviceMasters = async (req, res) => {
   try {
