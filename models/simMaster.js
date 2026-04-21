@@ -96,6 +96,7 @@ const simMasterSchema = new mongoose.Schema(
       enum: ["pending", "tested ok", "tested not ok", null],
       default: null,
     },
+    remark: { type: String, default: "" },
     images: [{ type: String }],
   },
   { timestamps: true },

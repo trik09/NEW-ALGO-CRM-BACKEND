@@ -5,7 +5,7 @@ const AccessoryMaster = require("../models/accessoryMaster");
 const { uploadBase64ImageToS3 } = require("../utils/uploadToS3");
 
 // ── shared core logic ──────────────────────────────────────────────────────────
-const rdTestItem = async (model, id, { testingStatus, images = [] }, userName) => {
+const rdTestItem = async (model, id, { testingStatus, images = [], remark = "" }, userName) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return { code: 400, body: { success: false, message: "Invalid ID" } };
     }
@@ -54,6 +54,7 @@ const rdTestItem = async (model, id, { testingStatus, images = [] }, userName) =
     // ── Update fields ────────────────────────────────────────────────────────────
     item.testingStatus = testingStatus;
     item.status = newStatus;
+    if (remark) item.remark = remark;
 
     // Replace images with the newly uploaded set (not append)
     if (uploadedUrls.length > 0) {
@@ -119,9 +120,9 @@ const rdDeleteImage = async (model, id, imageUrl) => {
 exports.rdTestDevice = async (req, res) => {
     try {
         const { id } = req.params;
-        const { testingStatus, images } = req.body;
+        const { testingStatus, images, remark } = req.body;
         const userName = req.user?.name || req.user?.email || "r&d";
-        const result = await rdTestItem(DeviceMaster, id, { testingStatus, images }, userName);
+        const result = await rdTestItem(DeviceMaster, id, { testingStatus, images, remark }, userName);
         res.status(result.code).json(result.body);
     } catch (err) {
         console.error("rdTestDevice error:", err);
@@ -144,9 +145,9 @@ exports.rdDeleteDeviceImage = async (req, res) => {
 exports.rdTestSim = async (req, res) => {
     try {
         const { id } = req.params;
-        const { testingStatus, images } = req.body;
+        const { testingStatus, images, remark } = req.body;
         const userName = req.user?.name || req.user?.email || "r&d";
-        const result = await rdTestItem(SimMaster, id, { testingStatus, images }, userName);
+        const result = await rdTestItem(SimMaster, id, { testingStatus, images, remark }, userName);
         res.status(result.code).json(result.body);
     } catch (err) {
         console.error("rdTestSim error:", err);
@@ -169,9 +170,9 @@ exports.rdDeleteSimImage = async (req, res) => {
 exports.rdTestAccessory = async (req, res) => {
     try {
         const { id } = req.params;
-        const { testingStatus, images } = req.body;
+        const { testingStatus, images, remark } = req.body;
         const userName = req.user?.name || req.user?.email || "r&d";
-        const result = await rdTestItem(AccessoryMaster, id, { testingStatus, images }, userName);
+        const result = await rdTestItem(AccessoryMaster, id, { testingStatus, images, remark }, userName);
         res.status(result.code).json(result.body);
     } catch (err) {
         console.error("rdTestAccessory error:", err);
