@@ -119,6 +119,21 @@ exports.createSimMaster = async (req, res) => {
 
     const finalStatus = data.status || "stock";
 
+    // ✅ deactivated validation
+    if (finalStatus === "deactivated") {
+      if (!data.deactivationDate) {
+        return res.status(400).json({ success: false, message: "Deactivation date is required when status is deactivated." });
+      }
+      if (!data.deactivationRemarks || !String(data.deactivationRemarks).trim()) {
+        return res.status(400).json({ success: false, message: "Deactivation remarks are required when status is deactivated." });
+      }
+      // normalize deactivationDate
+      data.deactivationDate = normalizeDateInputToISODateString(data.deactivationDate);
+    } else {
+      data.deactivationDate = "";
+      data.deactivationRemarks = "";
+    }
+
     // ✅ assignment validation based on status
     const needsAssignedTo = [
       "with technician",
@@ -413,6 +428,20 @@ exports.updateSimMaster = async (req, res) => {
         sim.demoToDate = null;
       }
 
+      // ✅ deactivated validation
+      if (incomingStatus === "deactivated") {
+        if (!sim.deactivationDate) {
+          return res.status(400).json({ success: false, message: "Deactivation date is required when status is deactivated." });
+        }
+        if (!sim.deactivationRemarks || !String(sim.deactivationRemarks).trim()) {
+          return res.status(400).json({ success: false, message: "Deactivation remarks are required when status is deactivated." });
+        }
+        sim.deactivationDate = normalizeDateInputToISODateString(sim.deactivationDate);
+      } else {
+        sim.deactivationDate = "";
+        sim.deactivationRemarks = "";
+      }
+
       // ✅ push history if status changed
       if (statusChanging) {
         sim.status = incomingStatus;
@@ -432,7 +461,7 @@ exports.updateSimMaster = async (req, res) => {
         }
 
         // ✅ if moved out of active vehicle use
-        if (["testing", "defective", "stock"].includes(incomingStatus)) {
+        if (["testing", "defective", "stock", "deactivated"].includes(incomingStatus)) {
           const MainData = require("../models/mainData.model");
           await MainData.updateMany(
             { simDetails: sim._id },

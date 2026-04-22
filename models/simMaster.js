@@ -13,6 +13,7 @@ const statusHistorySchema = new mongoose.Schema(
         "with cse",
         "foc",
         "defective",
+        "deactivated",
       ],
     },
     changedAt: { type: Date, default: Date.now },
@@ -57,6 +58,7 @@ const simMasterSchema = new mongoose.Schema(
         "with cse",
         "foc",
         "defective",
+        "deactivated",
       ],
       default: "stock",
     },
@@ -89,6 +91,10 @@ const simMasterSchema = new mongoose.Schema(
     defectMarkedDate: Date,
     defectReason: String,
     defectImages: [{ type: String }],
+
+    // Deactivation fields
+    deactivationDate: { type: String, default: "" },
+    deactivationRemarks: { type: String, default: "" },
 
     // R&D Testing fields
     testingStatus: {
