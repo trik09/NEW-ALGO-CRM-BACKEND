@@ -58,7 +58,12 @@ const rdTestItem = async (model, id, { testingStatus, images = [], remark = "" }
     if (remark) {
       item.remark = remark;
       item.remarks = item.remarks || [];
-      item.remarks.push({ status: testingStatus, text: remark, addedAt: new Date() });
+      item.remarks.push({
+        status: testingStatus,
+        text: remark,
+        images: uploadedUrls,   // ← the 2 photos from this exact test session
+        addedAt: new Date(),
+      });
     }
 
     // Replace images with the newly uploaded set (not append)

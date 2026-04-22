@@ -112,6 +112,7 @@ const accessoryMasterSchema = new mongoose.Schema(
       {
         status: { type: String, enum: ["tested ok", "tested not ok"] },
         text:   { type: String },
+        images: [{ type: String }],
         addedAt: { type: Date, default: Date.now },
         _id: false,
       },
