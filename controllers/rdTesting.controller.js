@@ -54,7 +54,12 @@ const rdTestItem = async (model, id, { testingStatus, images = [], remark = "" }
     // ── Update fields ────────────────────────────────────────────────────────────
     item.testingStatus = testingStatus;
     item.status = newStatus;
-    if (remark) item.remark = remark;
+    // Keep legacy remark field for backward compat, and push to remarks history
+    if (remark) {
+      item.remark = remark;
+      item.remarks = item.remarks || [];
+      item.remarks.push({ status: testingStatus, text: remark, addedAt: new Date() });
+    }
 
     // Replace images with the newly uploaded set (not append)
     if (uploadedUrls.length > 0) {

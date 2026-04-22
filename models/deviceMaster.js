@@ -87,6 +87,14 @@ const deviceMasterSchema = new mongoose.Schema(
       default: null,
     },
     remark: { type: String, default: "" },
+    remarks: [
+      {
+        status: { type: String, enum: ["tested ok", "tested not ok"] },
+        text:   { type: String },
+        addedAt: { type: Date, default: Date.now },
+        _id: false,
+      },
+    ],
     images: [{ type: String }],
   },
   { timestamps: true },
