@@ -728,6 +728,14 @@ exports.updateAccessoryMasters = async (req, res) => {
       });
     }
 
+    // ✅ Block status change if accessory is "assign to vendor" and user is NOT r&d
+    if (accessory.status === "assign to vendor" && req.user?.role !== "r&d") {
+      return res.status(403).json({
+        success: false,
+        message: "This accessory has been assigned to vendor. Only the R&D team can change its status.",
+      });
+    }
+
     const updates = Object.fromEntries(
       Object.entries(req.body).filter(([_, value]) => value !== undefined),
     );

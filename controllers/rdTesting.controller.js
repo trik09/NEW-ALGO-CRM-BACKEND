@@ -37,9 +37,9 @@ const rdTestItem = async (model, id, { testingStatus, images = [], remark = "" }
     }
 
     // ── Determine new status ─────────────────────────────────────────────────────
-    // tested ok       → "stock"   (cleared and back in inventory)
-    // tested not ok   → "testing" (remains in testing queue for re-work)
-    const newStatus = testingStatus === "tested ok" ? "stock" : "testing";
+    // tested ok       → "stock"          (cleared and back in inventory)
+    // tested not ok   → "assign to vendor" (needs to be sent to vendor for repair)
+    const newStatus = testingStatus === "tested ok" ? "stock" : "assign to vendor";
 
     // ── Push status history ──────────────────────────────────────────────────────
     const historyMessage = `R&D team marked it as ${testingStatus}`;

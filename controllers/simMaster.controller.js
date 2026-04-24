@@ -257,6 +257,14 @@ exports.updateSimMaster = async (req, res) => {
         .json({ success: false, message: "Sim Master not found" });
     }
 
+    // ✅ Block status change if sim is "assign to vendor" and user is NOT r&d
+    if (sim.status === "assign to vendor" && req.user?.role !== "r&d") {
+      return res.status(403).json({
+        success: false,
+        message: "This SIM has been assigned to vendor. Only the R&D team can change its status.",
+      });
+    }
+
     const prevStatus = sim.status;
 
     // ✅ keep keys even if "" so we can detect touched fields

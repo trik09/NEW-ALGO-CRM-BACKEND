@@ -724,6 +724,14 @@ exports.updateDeviceMasters = async (req, res) => {
         .json({ success: false, message: "Device Master not found" });
     }
 
+    // ✅ Block status change if device is "assign to vendor" and user is NOT r&d
+    if (device.status === "assign to vendor" && req.user?.role !== "r&d") {
+      return res.status(403).json({
+        success: false,
+        message: "This device has been assigned to vendor. Only the R&D team can change its status.",
+      });
+    }
+
     const updates = Object.fromEntries(
       Object.entries(req.body).filter(([_, value]) => value !== undefined),
     );
