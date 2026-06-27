@@ -895,6 +895,14 @@ exports.getAllDeviceMasters = async (req, res) => {
       searchQuery.testingStatus = testingStatusFilter;
     }
 
+    // ✅ filter by isRepairable if provided
+    const isRepairableFilter = req.query.isRepairable;
+    if (isRepairableFilter === 'true') {
+      searchQuery.isRepairable = true;
+    } else if (isRepairableFilter === 'false') {
+      searchQuery.isRepairable = { $ne: true };
+    }
+
     const sortField = sortBy || "createdAt";
     const sortDir =
       String(sortOrder).toLowerCase() === "asc" ||

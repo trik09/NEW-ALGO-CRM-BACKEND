@@ -12596,8 +12596,36 @@ const softCloseTicket = async (req, res) => {
   }
 };
 
+const exportAllTickets = async (req, res) => {
+  try {
+    const tickets = await Ticket.find({})
+      .populate("qstClientName", "companyShortName companyName")
+      .populate("assignee", "name")
+      .populate("taskType", "taskName")
+      .populate("deviceType", "deviceName")
+      .populate("technician", "name")
+      .populate("resolutionRef", "ResolutionName")
+      .populate("issueFoundRef", "issueFoundName")
+      .populate("creator", "name")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: tickets.length,
+      data: tickets,
+    });
+  } catch (error) {
+    console.error("Error exporting all tickets:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
+  exportAllTickets,
   getAllTickets,
   createTicket,
   createNewTicket,

@@ -848,3 +848,24 @@ exports.getAllCSE = async (req, res) => {
   }
 };
 
+// Get all R&D users (for CSE dropdown when accepting defective items)
+exports.getAllRnDUsers = async (req, res) => {
+  try {
+    const rndUsers = await Employee.find({ role: "r&d" }).select("name email _id");
+
+    res.status(200).json({
+      success: true,
+      count: rndUsers.length,
+      message: "R&D users fetched successfully",
+      data: rndUsers,
+    });
+  } catch (error) {
+    console.error("Error fetching R&D users:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+

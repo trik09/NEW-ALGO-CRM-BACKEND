@@ -14,6 +14,7 @@ router.post('/create-new-ticket1', ticketController.createNewTicket);
 router.get('/get-all-tickets', isAuthenticated, ticketController.getAllTickets);
 router.get('/export-ticket-data-by-daterange', isAuthenticated, ticketController.ExportTicketDataByDateRange);
 router.get('/export-cancel-ticket-data-by-daterange', isAuthenticated, ticketController.ExportCanceledTicketDataByDateRange);
+router.get('/export-all-tickets', isAuthenticated, authorizeRoles("superAdmin", "admin"), ticketController.exportAllTickets);
 router.put('/update-ticket/:ticketId', isAuthenticated, authorizeRoles("superAdmin", "admin", "cse"), ticketController.updateTicket)
 router.patch('/soft-close/:ticketId', ticketController.softCloseTicket);
 

@@ -381,7 +381,7 @@ exports.getPendingSwapRequests = async (req, res) => {
 exports.approveSwapRequest = async (req, res) => {
     try {
         const { swapId } = req.params;
-        const { cseId, cseComments } = req.body;
+        const { cseId, cseComments, rndUserId } = req.body;
 
         const swap = await DefectiveItemSwap.findById(swapId);
         if (!swap) {
@@ -409,27 +409,56 @@ exports.approveSwapRequest = async (req, res) => {
             });
         }
 
-        defectiveItem.status = 'with cse';
-        defectiveItem.isDefective = true;
-        defectiveItem.defectMarkedDate = new Date();
-        defectiveItem.defectReason = swap.defectDescription;
-        defectiveItem.assignedTo = cseId;
-        defectiveItem.assignedToModel = 'Employee';
+        // If rndUserId is provided, mark as repairable and assign to R&D user
+        if (rndUserId) {
+            const rndUser = await Employee.findById(rndUserId);
+            const rndUserName = rndUser ? rndUser.name : 'Unknown R&D User';
 
-        const cse = await Employee.findById(cseId);
-        const cseName = cse ? cse.name : 'Unknown CSE';
+            defectiveItem.status = 'testing';
+            defectiveItem.isDefective = true;
+            defectiveItem.isRepairable = true;
+            defectiveItem.testingStatus = 'pending';
+            defectiveItem.defectMarkedDate = new Date();
+            defectiveItem.defectReason = swap.defectDescription;
+            defectiveItem.assignedTo = rndUserId;
+            defectiveItem.assignedToModel = 'Employee';
 
-        if ('assignedToName' in defectiveItem || defectiveItem.assignedToName !== undefined) {
-            defectiveItem.assignedToName = cseName;
-        }
+            if ('assignedToName' in defectiveItem || defectiveItem.assignedToName !== undefined) {
+                defectiveItem.assignedToName = rndUserName;
+            }
 
-        // Add to status history
-        if (defectiveItem.statusHistory) {
-            defectiveItem.statusHistory.push({
-                status: 'with cse',
-                changedAt: new Date(),
-                changedBy: `CSE ${cseName} - Defect Approved`
-            });
+            // Add to status history
+            if (defectiveItem.statusHistory) {
+                defectiveItem.statusHistory.push({
+                    status: 'testing',
+                    changedAt: new Date(),
+                    changedBy: `CSE sent to R&D (${rndUserName}) for repair testing`
+                });
+            }
+        } else {
+            // Original flow: assign to CSE
+            defectiveItem.status = 'with cse';
+            defectiveItem.isDefective = true;
+            defectiveItem.defectMarkedDate = new Date();
+            defectiveItem.defectReason = swap.defectDescription;
+            defectiveItem.assignedTo = cseId;
+            defectiveItem.assignedToModel = 'Employee';
+
+            const cse = await Employee.findById(cseId);
+            const cseName = cse ? cse.name : 'Unknown CSE';
+
+            if ('assignedToName' in defectiveItem || defectiveItem.assignedToName !== undefined) {
+                defectiveItem.assignedToName = cseName;
+            }
+
+            // Add to status history
+            if (defectiveItem.statusHistory) {
+                defectiveItem.statusHistory.push({
+                    status: 'with cse',
+                    changedAt: new Date(),
+                    changedBy: `CSE ${cseName} - Defect Approved`
+                });
+            }
         }
 
         await defectiveItem.save();
@@ -452,7 +481,9 @@ exports.approveSwapRequest = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: 'Swap request approved. Defective item sent to CSE.',
+            message: rndUserId
+                ? 'Swap request approved. Defective item sent to R&D for repair testing.'
+                : 'Swap request approved. Defective item sent to CSE.',
             data: populatedSwap
         });
     } catch (error) {

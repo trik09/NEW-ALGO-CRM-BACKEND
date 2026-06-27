@@ -540,6 +540,14 @@ exports.getAllSimMasters = async (req, res) => {
       searchQuery.assignedTo = new mongoose.Types.ObjectId(assignedToFilter);
     }
 
+    // ✅ filter by isRepairable if provided
+    const isRepairableFilter = req.query.isRepairable;
+    if (isRepairableFilter === 'true') {
+      searchQuery.isRepairable = true;
+    } else if (isRepairableFilter === 'false') {
+      searchQuery.isRepairable = { $ne: true };
+    }
+
     const totalCount = await simMasterModel.countDocuments(searchQuery);
 
     const raw = await simMasterModel

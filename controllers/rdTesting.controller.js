@@ -200,3 +200,142 @@ exports.rdDeleteAccessoryImage = async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 };
+
+// ── Repairable item testing (separate flow) ──────────────────────────────────
+// tested ok   → "stock"     (repaired successfully, back in inventory)
+// tested not ok → "defective" (cannot be repaired)
+const rdTestRepairableItem = async (model, id, { testingStatus, images = [], remark = "" }, userName) => {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return { code: 400, body: { success: false, message: "Invalid ID" } };
+    }
+
+    const item = await model.findById(id);
+    if (!item) {
+        return { code: 404, body: { success: false, message: "Item not found" } };
+    }
+
+    const validStatuses = ["tested ok", "tested not ok"];
+    if (!validStatuses.includes(testingStatus)) {
+        return {
+            code: 400,
+            body: { success: false, message: `testingStatus must be one of: ${validStatuses.join(", ")}` },
+        };
+    }
+
+    // ── Upload images to S3 ──────────────────────────────────────────────────────
+    const itemType = model.modelName.toLowerCase().replace("master", "");
+    const uploadedUrls = [];
+
+    for (let i = 0; i < images.length; i++) {
+        const url = await uploadBase64ImageToS3(
+            images[i],
+            `rd-repairable-testing/${itemType}`,
+            `${id}_photo_${i + 1}`
+        );
+        uploadedUrls.push(url);
+    }
+
+    // ── Determine new status ─────────────────────────────────────────────────────
+    const newStatus = testingStatus === "tested ok" ? "stock" : "defective";
+
+    // ── Push status history ──────────────────────────────────────────────────────
+    const historyMessage = `R&D team marked repairable item as ${testingStatus}`;
+
+    item.statusHistory = item.statusHistory || [];
+    item.statusHistory.push({
+        status: newStatus,
+        changedAt: new Date(),
+        changedBy: historyMessage,
+    });
+
+    // ── Update fields ────────────────────────────────────────────────────────────
+    item.testingStatus = testingStatus;
+    item.status = newStatus;
+
+    if (remark) {
+        item.remark = remark;
+        item.remarks = item.remarks || [];
+        item.remarks.push({
+            status: testingStatus,
+            text: remark,
+            images: uploadedUrls,
+            addedAt: new Date(),
+        });
+    }
+
+    // Append uploaded images
+    if (uploadedUrls.length > 0) {
+        item.images = [...(item.images || []), ...uploadedUrls];
+    }
+
+    if (newStatus === "stock") {
+        // Repaired successfully — clear all flags and put back in inventory
+        item.stockEnteredAt = new Date();
+        item.assignedTo = null;
+        item.assignedToModel = null;
+        item.isRepairable = false;
+        item.isDefective = false;
+    } else {
+        // Cannot be repaired — mark as defective, clear assignment
+        item.assignedTo = null;
+        item.assignedToModel = null;
+        item.isRepairable = false;
+        // isDefective stays true
+    }
+
+    await item.save();
+
+    return {
+        code: 200,
+        body: {
+            success: true,
+            message: `Repairable item marked as "${testingStatus}" successfully`,
+            testingStatus,
+            newStatus,
+            imageUrls: uploadedUrls,
+            item,
+        },
+    };
+};
+
+// ── REPAIRABLE DEVICE ─────────────────────────────────────────────────────────
+exports.rdTestRepairableDevice = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { testingStatus, images, remark } = req.body;
+        const userName = req.user?.name || req.user?.email || "r&d";
+        const result = await rdTestRepairableItem(DeviceMaster, id, { testingStatus, images, remark }, userName);
+        res.status(result.code).json(result.body);
+    } catch (err) {
+        console.error("rdTestRepairableDevice error:", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// ── REPAIRABLE SIM ────────────────────────────────────────────────────────────
+exports.rdTestRepairableSim = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { testingStatus, images, remark } = req.body;
+        const userName = req.user?.name || req.user?.email || "r&d";
+        const result = await rdTestRepairableItem(SimMaster, id, { testingStatus, images, remark }, userName);
+        res.status(result.code).json(result.body);
+    } catch (err) {
+        console.error("rdTestRepairableSim error:", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// ── REPAIRABLE ACCESSORY ──────────────────────────────────────────────────────
+exports.rdTestRepairableAccessory = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { testingStatus, images, remark } = req.body;
+        const userName = req.user?.name || req.user?.email || "r&d";
+        const result = await rdTestRepairableItem(AccessoryMaster, id, { testingStatus, images, remark }, userName);
+        res.status(result.code).json(result.body);
+    } catch (err) {
+        console.error("rdTestRepairableAccessory error:", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+};

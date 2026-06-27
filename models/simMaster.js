@@ -90,6 +90,10 @@ const simMasterSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    isRepairable: {
+      type: Boolean,
+      default: false
+    },
     defectMarkedDate: Date,
     defectReason: String,
     defectImages: [{ type: String }],

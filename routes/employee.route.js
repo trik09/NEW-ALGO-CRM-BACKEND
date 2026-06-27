@@ -25,6 +25,13 @@ router.get(
   employeeController.getAllCSE
 );
 
+// Get All R&D users
+router.get(
+  "/get-all-rnd-users",
+  isAuthenticated,
+  employeeController.getAllRnDUsers
+);
+
 // it is used for  only company employee data (Not super Admin and other like qstClient)
 router.get(
   "/get-all-employee-except-superadmin",

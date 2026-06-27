@@ -51,6 +51,14 @@ router.delete(
   rdTestingController.rdDeleteAccessoryImage
 );
 
+// R&D Repairable Testing — only r&d role
+router.put(
+  "/rd-repairable-testing/:id",
+  isAuthenticated,
+  authorizeRoles("r&d"),
+  rdTestingController.rdTestRepairableAccessory
+);
+
 module.exports = router;
 
 
