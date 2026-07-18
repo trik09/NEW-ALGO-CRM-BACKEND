@@ -504,6 +504,8 @@ exports.getAllSimMasters = async (req, res) => {
     const statusFilter = req.query.status;
     const assignedToFilter = req.query.assignedTo;
     const testingStatusFilter = req.query.testingStatus;
+    const isSimActivatedFilter = req.query.isSimActivated;
+    const demoStatus = req.query.demoStatus;
 
     let searchQuery = {};
     if (search) {
@@ -547,7 +549,30 @@ exports.getAllSimMasters = async (req, res) => {
     } else if (isRepairableFilter === 'false') {
       searchQuery.isRepairable = { $ne: true };
     }
+if (isSimActivatedFilter === "true") {
+  searchQuery.isSimActivated = true;
+}
 
+if (isSimActivatedFilter === "false") {
+  searchQuery.isSimActivated = false;
+}
+// Filter customer demo records by demo period
+if (statusFilter === "customer demo" && demoStatus) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (demoStatus === "within") {
+    searchQuery.demoToDate = {
+      $gte: today,
+    };
+  }
+
+  if (demoStatus === "outside") {
+    searchQuery.demoToDate = {
+      $lt: today,
+    };
+  }
+}
     const totalCount = await simMasterModel.countDocuments(searchQuery);
 
     const raw = await simMasterModel

@@ -857,7 +857,7 @@ exports.getAllDeviceMasters = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
-    const { search, sortBy, sortOrder, status: statusFilter, assignedTo: assignedToFilter, testingStatus: testingStatusFilter, warrantyStatus: warrantyStatusFilter } = req.query;
+    const { search, sortBy, sortOrder, status: statusFilter, assignedTo: assignedToFilter, testingStatus: testingStatusFilter, warrantyStatus: warrantyStatusFilter,demoStatus, } = req.query;
 
     let searchQuery = {};
     if (search) {
@@ -910,6 +910,24 @@ exports.getAllDeviceMasters = async (req, res) => {
         sortOrder === "1"
         ? 1
         : -1;
+
+        // Filter customer demo records by demo period
+if (statusFilter === "customer demo" && demoStatus) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (demoStatus === "within") {
+    searchQuery.demoToDate = {
+      $gte: today,
+    };
+  }
+
+  if (demoStatus === "outside") {
+    searchQuery.demoToDate = {
+      $lt: today,
+    };
+  }
+}
 
     const totalCount = await DeviceMasterModel.countDocuments(searchQuery);
 
