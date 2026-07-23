@@ -616,7 +616,7 @@ exports.createEmployeeBySuperAdmin = async (req, res) => {
     try {
       await sendEmail({
         to: newEmployee.email,
-        subject: "Welcome on Quik Serv",
+        subject: "Welcome on AlgoMatix",
         html,
       });
     } catch (err) {

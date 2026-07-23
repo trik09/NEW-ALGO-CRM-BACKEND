@@ -31,7 +31,7 @@ const passwordResetTemplate = (name, resetUrl) => {
                   <p style="word-break: break-word;"><a href="${resetUrl}" style="color: #007bff;">${resetUrl}</a></p>
                   <p style="font-size: 14px; color: #999999;">If you didn’t request a password reset, you can ignore this email.</p>
                   <hr style="margin: 30px 0;" />
-                  <p style="text-align: center; font-size: 13px; color: #bbbbbb;">&copy; ${new Date().getFullYear()} Quik Serv. All rights reserved.</p>
+                  <p style="text-align: center; font-size: 13px; color: #bbbbbb;">&copy; ${new Date().getFullYear()} AlgoMatix. All rights reserved.</p>
                 </td>
               </tr>
             </table>

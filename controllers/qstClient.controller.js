@@ -297,7 +297,6 @@ exports.createSingleQSTClient = async (req, res) => {
       try {
         await sendEmail({
           to: savedEmployee.email,
-          // subject: "Welcome on Quik Serv",
           subject: `Login credentials for ${savedEmployee.name}`,
           html,
         });
@@ -1271,111 +1270,6 @@ exports.updateSingleQSTClient = async (req, res) => {
     client.cse = cse;
 
     // Handle contacts if provided
-    // if (contacts && contacts.length > 0) {
-    //   // Get current contact employee IDs
-    //   const currentContactIds = client.contactEmployeeIds || [];
-
-    //   // Create arrays to track contacts to add, update, and remove
-    //   const contactsToAdd = [];
-    //   const contactsToUpdate = [];
-    //   const existingContactEmails = new Set();
-
-    //   // First, identify which contacts are new and which exist
-    //   for (const contact of contacts) {
-    //     // Check if this contact already exists in the database
-    //     const existingEmployee = await Employee.findOne({
-    //       email: contact.email.toLowerCase(),
-    //       associatedClient: client._id
-    //     }).session(session);
-
-    //     if (existingEmployee) {
-    //       // Contact exists, update it
-    //       existingEmployee.name = contact.contactPerson;
-    //       existingEmployee.phoneNumber = contact.mobileNo;
-    //       contactsToUpdate.push(existingEmployee);
-    //       existingContactEmails.add(contact.email.toLowerCase());
-    //     } else {
-    //       // New contact to add
-    //       contactsToAdd.push(contact);
-    //     }
-    //   }
-
-    //   // Identify contacts to remove (those not in the new contacts list)
-    //   const contactsToRemove = [];
-    //   for (const employeeId of currentContactIds) {
-    //     const employee = await Employee.findById(employeeId).session(session);
-    //     if (employee && !existingContactEmails.has(employee.email.toLowerCase())) {
-    //       contactsToRemove.push(employee);
-    //     }
-    //   }
-
-    //   // Remove contacts that are no longer needed
-    //   for (const employee of contactsToRemove) {
-    //     // Remove employee reference from client
-    //     client.contactEmployeeIds = client.contactEmployeeIds.filter(
-    //       id => id.toString() !== employee._id.toString()
-    //     );
-
-    //     // Soft delete or remove the employee
-    //     // Option 1: Remove completely
-    //     await Employee.findByIdAndDelete(employee._id).session(session);
-
-    //     // Option 2: Mark as inactive (recommended)
-    //     // employee.isActive = false;
-    //     await employee.save({ session });
-    //   }
-
-    //   // Update existing contacts
-    //   for (const employee of contactsToUpdate) {
-    //     await employee.save({ session });
-    //   }
-
-    //   // Add new contacts
-    //   const newEmployees = [];
-    //   for (const contact of contactsToAdd) {
-    //     const tempPassword = generateSimplePassword(10);
-    //     const hashedPassword = await bcrypt.hash(tempPassword, 10);
-
-    //     const newEmployee = new Employee({
-    //       name: contact.contactPerson,
-    //       email: contact.email.toLowerCase(),
-    //       phoneNumber: contact.mobileNo,
-    //       password: hashedPassword,
-    //       role: "qstClient",
-    //       associatedClient: client._id,
-    //       isActive: true,
-    //     });
-
-    //     const savedEmployee = await newEmployee.save({ session });
-    //     newEmployees.push({
-    //       employee: savedEmployee,
-    //       tempPassword,
-    //     });
-
-    //     // Add to client's contact list
-    //     client.contactEmployeeIds.push(savedEmployee._id);
-
-    //     // Send welcome email
-    //     const html = welcomeTemplateOfQSTClientsTemplate(
-    //       savedEmployee.name,
-    //       savedEmployee.email,
-    //       tempPassword,
-    //       `${(process.env.FRONTEND_URL || process.env.CLIENT_BASE_URL || "").replace(/\/api\/?$/, "")}/login`
-    //     );
-
-    //     try {
-    //       await sendEmail({
-    //         to: savedEmployee.email,
-    //         subject: "Welcome on Quik Serv",
-    //         html,
-    //       });
-    //     } catch (err) {
-    //       console.error(`Email sending failed to ${savedEmployee.email}:`, err.message);
-    //     }
-    //   }
-    // }
-
-    // Handle contacts if provided
     if (contacts && contacts.length > 0) {
       // Get current contact employee IDs (only those that actually exist)
       const currentContactIds = client.contactEmployeeIds || [];
@@ -1483,7 +1377,6 @@ exports.updateSingleQSTClient = async (req, res) => {
         try {
           await sendEmail({
             to: savedEmployee.email,
-            // subject: "Welcome on Quik Serv",
             subject: `Login credentials for ${savedEmployee.name}`,
             html,
           });

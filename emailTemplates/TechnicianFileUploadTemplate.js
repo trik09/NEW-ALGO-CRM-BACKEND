@@ -1,11 +1,11 @@
-const generateTechnicianAssignmentEmail = (ticket, technicianName,securityCode) => {
-  console.log(ticket,"ticket")
-  console.log(technicianName,"technician namer")
+const generateTechnicianAssignmentEmail = (ticket, technicianName, securityCode) => {
+  console.log(ticket, "ticket")
+  console.log(technicianName, "technician namer")
   // const ticketLink = `${process.env.FRONTEND_URL}/technician/tickets/${ticket._id}`;
   const ticketLink = `${process.env.FRONTEND_URL}/fileupload-by-technician/${technicianName._id}/${ticket._id}`;
   // /get-one-active-assigned-ticket/:technicianId/:ticketId",
 
-    const securityCodeSection = securityCode ? `
+  const securityCodeSection = securityCode ? `
     <div style="background-color: #fff8e1; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #ffc107;">
       <h3 style="margin-top: 0; color: #ff6f00;">Security Code</h3>
       <p><strong>Your verification code:</strong> 
@@ -14,12 +14,12 @@ const generateTechnicianAssignmentEmail = (ticket, technicianName,securityCode) 
       <p>This code will expire in 7 days.</p>
     </div>
   ` : '';
-  
+
   return {
-    subject: `New Ticket Assigned: ${ 'Ticket #' + ticket._id}`,
+    subject: `New Ticket Assigned: ${'Ticket #' + ticket._id}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2c3e50;">Quik Serv Ticket Assignment</h2>
+        <h2 style="color: #2c3e50;">AlgoMatix Ticket Assignment</h2>
         <p>Hello ${technicianName.name}</p>
         <p>You have been assigned a new ticket:</p>
         
@@ -44,11 +44,11 @@ const generateTechnicianAssignmentEmail = (ticket, technicianName,securityCode) 
         
         <p>You can also add new vehicle numbers or update existing ones through this link.</p>
         
-        <p style="margin-top: 30px;">Best regards,<br>The Quik Serv Team</p>
+        <p style="margin-top: 30px;">Best regards,<br>The AlgoMatix Team</p>
       </div>
     `,
     text: `
-      Quik Serv Ticket Assignment
+      AlgoMatix Ticket Assignment
       Hello ${technicianName.name},
       
       You have been assigned a new ticket:
@@ -64,7 +64,7 @@ const generateTechnicianAssignmentEmail = (ticket, technicianName,securityCode) 
       You can also add new vehicle numbers or update image/video existing ones through this link.
       
       Best regards,
-      The Quik Serv Team
+      The AlgoMatix Team
     `
   };
 };

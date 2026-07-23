@@ -15,7 +15,7 @@ const welcomeTemplateOfQSTClients = (name, email, password, loginUrl) => {
             <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
               <tr>
                 <td style="background-color: #facc15; color: #111827; text-align: center; padding: 30px;">
-                  <h1 style="margin: 0;">Welcome to Quik Serv</h1>
+                  <h1 style="margin: 0;">Welcome to AlgoMatix</h1>
                 </td>
               </tr>
               <tr>
@@ -38,7 +38,7 @@ const welcomeTemplateOfQSTClients = (name, email, password, loginUrl) => {
 
                   <p style="font-size: 14px;">For security, we recommend changing your password after your first login.</p>
                   <hr style="margin: 30px 0;" />
-                  <p style="text-align: center; font-size: 13px; color: #bbbbbb;">&copy; ${new Date().getFullYear()} Quik Serv. All rights reserved.</p>
+                  <p style="text-align: center; font-size: 13px; color: #bbbbbb;">&copy; ${new Date().getFullYear()} AlgoMatix. All rights reserved.</p>
                 </td>
               </tr>
             </table>

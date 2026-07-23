@@ -4058,7 +4058,7 @@ const createNewTicket = async (req, res) => {
       <div style="font-family: Arial, sans-serif; color: #333;">
         <p>Dear ${customerName || "Customer"},</p>
 
-        <p>Thanks for chosing Quik Serv !!!</p>
+        <p>Thanks for chosing AlgoMatix !!!</p>
 
         <p>We have received your request for ${taskTypeDoc?.taskName || "N/A"} of ${dashcamBrand} ${dashcamType}.</p>
 
@@ -4070,7 +4070,7 @@ const createNewTicket = async (req, res) => {
 
         <p>Thanks,</p>
 
-        <p>Team <strong>Quik Serv</strong></p>
+        <p>Team <strong>AlgoMatix</strong></p>
 
         <br/>
         <p style="font-size: 0.9em; color: #777;">This is an automated email. Please do not reply.</p>
@@ -4079,7 +4079,7 @@ const createNewTicket = async (req, res) => {
 
         await sendEmail({
           to: email,
-          subject: `Quik Serv Dashcam installation ticket - ${savedTicket.ticketSKUId}`,
+          subject: `AlgoMatix Dashcam installation ticket - ${savedTicket.ticketSKUId}`,
           html: emailHtml,
           text: `Dear ${customerName || "Customer"}`,
         });
