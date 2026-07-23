@@ -183,7 +183,7 @@ function excelDateToJSDate(serial) {
   const date_info = new Date(utc_value * 1000);
 
   const day = date_info.getDate().toString().padStart(2, "0");
-  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const month = monthNames[date_info.getMonth()];
   const year = date_info.getFullYear();
 
@@ -198,8 +198,8 @@ async function importExcel() {
     console.log("Connecting to MongoDB...");
 
     await mongoose.connect(
-      // "mongodb+srv://Zod:Zaaves7560@cluster1.feijb.mongodb.net/customersEOD?retryWrites=true&w=majority&appName=Cluster1/AlgoMatrixCRM"
-      "mongodb+srv://Zod:Zaaves7560@cluster1.feijb.mongodb.net/AlgoMatrixCRM"
+      "mongodb+srv://riyazrahman_db_user:3qey9dM0Zui7GgVt@cluster0.wsbhkym.mongodb.net/AlgoMatrixCRM"
+      // "mongodb+srv://Zod:Zaaves7560@cluster1.feijb.mongodb.net/AlgoMatrixCRM"
     );
 
     console.log("Connected.");

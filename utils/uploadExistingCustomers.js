@@ -4,6 +4,7 @@ const ExistingCustomer = require('../models/existingCustomer')
 
 // DB connection
 mongoose.connect('mongodb+srv://riyazrahman_db_user:3qey9dM0Zui7GgVt@cluster0.wsbhkym.mongodb.net/AlgoMatrixCRM')
+  // mongoose.connect('mongodb+srv://Zod:Zaaves7560@cluster1.feijb.mongodb.net/AlgoMatrixCRM')
   .then(() => console.log('MongoDB Connected'))
   .catch(err => console.log(err));
 
@@ -11,7 +12,7 @@ mongoose.connect('mongodb+srv://riyazrahman_db_user:3qey9dM0Zui7GgVt@cluster0.ws
   try {
 
     // Load excel
-    const workbook = XLSX.readFile('./Book2.xls');
+    const workbook = XLSX.readFile('./Book2.xlsx');
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
 
