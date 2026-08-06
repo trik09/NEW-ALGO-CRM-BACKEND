@@ -374,10 +374,11 @@ const exportDevices = async (req, res) => {
 
 const getDetailsOfAlgoClient = async (req, res) => {
   const { id } = req.params;
-  const { registrationNumber } = req.query;
+  const { registrationNumber, search } = req.query;
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.max(1, parseInt(req.query.limit, 10) || 40);
 
-  console.log("Received ID:", id);
-  console.log("Received Registration Number:", registrationNumber);
+  console.log("Received ID:", id, "page:", page, "limit:", limit, "search:", search);
 
   try {
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -393,32 +394,49 @@ const getDetailsOfAlgoClient = async (req, res) => {
     // Add registration number to query if provided
     if (registrationNumber) {
       query.registrationNumber = registrationNumber;
-    }
 
-    const AllDetails = await MainData.find(query)
-      .populate("simDetails")
-      .populate("deviceDetails");
+      const AllDetails = await MainData.find(query)
+        .populate("simDetails")
+        .populate("deviceDetails");
 
-    if (!AllDetails || AllDetails.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: registrationNumber
-          ? "No device found with this registration number"
-          : "No devices found for this client",
+      if (!AllDetails || AllDetails.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No device found with this registration number",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Device details fetched successfully",
+        data: AllDetails[0] || AllDetails,
       });
     }
 
-    console.log("AllDetails", AllDetails);
+    if (search) {
+      query.registrationNumber = { $regex: search, $options: "i" };
+    }
 
-    // If registrationNumber is provided, return single object instead of array
-    const responseData = registrationNumber ? AllDetails[0] : AllDetails;
+    const total = await MainData.countDocuments(query);
+    const skip = (page - 1) * limit;
+
+    const AllDetails = await MainData.find(query)
+      .populate("simDetails")
+      .populate("deviceDetails")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     res.status(200).json({
       success: true,
-      message: registrationNumber
-        ? "Device details fetched successfully"
-        : "Algo client details fetched successfully",
-      data: responseData,
+      message: "Algo client details fetched successfully",
+      data: AllDetails,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
     });
   } catch (error) {
     console.error("Error fetching algo client details:", error);
